@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useRef, useEffect } from "react";
 import { View, TouchableOpacity, Text, StyleSheet, Animated } from "react-native";
+import { NavProvider, useNav } from "./NavContext";
 
 interface Tab {
   key: string;
@@ -12,73 +13,54 @@ interface TabNavigatorProps {
   screens: Record<string, React.FC>;
 }
 
-export default function TabNavigator({ tabs, screens }: TabNavigatorProps) {
-  const [activeTab, setActiveTab] = useState(tabs[0]?.key ?? "");
+function TabBar({ tabs }: { tabs: Tab[] }) {
+  const { activeTab, navigate } = useNav();
   const slideAnim = useRef(new Animated.Value(0)).current;
-  const prevTab = useRef(activeTab);
+  const idx = tabs.findIndex((t) => t.key === activeTab);
 
   useEffect(() => {
-    const idx = tabs.findIndex((t) => t.key === activeTab);
-    Animated.spring(slideAnim, {
-      toValue: idx,
-      friction: 8,
-      tension: 60,
-      useNativeDriver: true,
-    }).start();
-    prevTab.current = activeTab;
-  }, [activeTab, tabs]);
+    Animated.spring(slideAnim, { toValue: idx, friction: 8, tension: 60, useNativeDriver: true }).start();
+  }, [activeTab]);
 
-  const Screen = screens[activeTab];
   const indicatorWidth = 100 / tabs.length;
 
   return (
+    <View style={styles.tabBar}>
+      {tabs.map((tab) => (
+        <TouchableOpacity
+          key={tab.key}
+          style={styles.tab}
+          onPress={() => navigate(tab.key)}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.tabIcon, activeTab === tab.key && styles.tabIconActive]}>{tab.icon}</Text>
+          <Text style={[styles.tabLabel, activeTab === tab.key && styles.tabLabelActive]}>{tab.label}</Text>
+        </TouchableOpacity>
+      ))}
+      <Animated.View
+        style={[styles.activeIndicator, { width: `${indicatorWidth}%`, transform: [{ translateX: slideAnim.interpolate({ inputRange: [0, tabs.length - 1], outputRange: [0, (tabs.length - 1) * indicatorWidth] }) }] }]}
+      />
+    </View>
+  );
+}
+
+export default function TabNavigator({ tabs, screens }: TabNavigatorProps) {
+  return (
+    <NavProvider>
+      <TabNavigatorInner tabs={tabs} screens={screens} />
+    </NavProvider>
+  );
+}
+
+function TabNavigatorInner({ tabs, screens }: TabNavigatorProps) {
+  const { activeTab } = useNav();
+  const Screen = screens[activeTab];
+  return (
     <View style={styles.container}>
-      <Animated.View style={styles.screenArea} key={activeTab}>
+      <View style={styles.screenArea} key={activeTab}>
         {Screen ? <Screen /> : null}
-      </Animated.View>
-      <View style={styles.tabBar}>
-        {tabs.map((tab, i) => (
-          <TouchableOpacity
-            key={tab.key}
-            style={styles.tab}
-            onPress={() => setActiveTab(tab.key)}
-            activeOpacity={0.7}
-          >
-            <Text
-              style={[
-                styles.tabIcon,
-                activeTab === tab.key && styles.tabIconActive,
-              ]}
-            >
-              {tab.icon}
-            </Text>
-            <Text
-              style={[
-                styles.tabLabel,
-                activeTab === tab.key && styles.tabLabelActive,
-              ]}
-            >
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-        <Animated.View
-          style={[
-            styles.activeIndicator,
-            {
-              width: `${indicatorWidth}%`,
-              transform: [
-                {
-                  translateX: slideAnim.interpolate({
-                    inputRange: [0, tabs.length - 1],
-                    outputRange: [0, (tabs.length - 1) * indicatorWidth],
-                  }),
-                },
-              ],
-            },
-          ]}
-        />
       </View>
+      <TabBar tabs={tabs} />
     </View>
   );
 }
@@ -95,23 +77,10 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     position: "relative",
   },
-  tab: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 4,
-    zIndex: 2,
-  },
-  tabIcon: { fontSize: 18, color: "#64748b" },
+  tab: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 4, zIndex: 2 },
+  tabIcon: { fontSize: 16, color: "#64748b" },
   tabIconActive: { color: "#3b82f6" },
-  tabLabel: { fontSize: 10, color: "#64748b", marginTop: 2 },
+  tabLabel: { fontSize: 9, color: "#64748b", marginTop: 2 },
   tabLabelActive: { color: "#fff", fontWeight: "600" },
-  activeIndicator: {
-    position: "absolute",
-    top: 0,
-    height: 2,
-    backgroundColor: "#3b82f6",
-    borderRadius: 1,
-    zIndex: 1,
-  },
+  activeIndicator: { position: "absolute", top: 0, height: 2, backgroundColor: "#3b82f6", borderRadius: 1, zIndex: 1 },
 });

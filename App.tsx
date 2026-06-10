@@ -5,21 +5,24 @@ import LoginScreen from "./src/screens/LoginScreen";
 import TabNavigator from "./src/navigation/TabNavigator";
 import DashboardScreen from "./src/screens/DashboardScreen";
 import ProjectsScreen from "./src/screens/ProjectsScreen";
-import MediaScreen from "./src/screens/MediaScreen";
-import SettingsScreen from "./src/screens/SettingsScreen";
+import WorkforceScreen from "./src/screens/WorkforceScreen";
+import InsightsScreen from "./src/screens/InsightsScreen";
+import MoreScreen from "./src/screens/MoreScreen";
 
 const TABS = [
   { key: "dashboard", label: "Dashboard", icon: "📊" },
   { key: "projects", label: "Projects", icon: "📋" },
-  { key: "media", label: "Media", icon: "📷" },
-  { key: "settings", label: "Settings", icon: "⚙️" },
+  { key: "workforce", label: "Workforce", icon: "👥" },
+  { key: "insights", label: "Insights", icon: "🤖" },
+  { key: "more", label: "More", icon: "⚡" },
 ];
 
 const SCREENS: Record<string, React.FC> = {
   dashboard: DashboardScreen,
   projects: ProjectsScreen,
-  media: MediaScreen,
-  settings: SettingsScreen,
+  workforce: WorkforceScreen,
+  insights: InsightsScreen,
+  more: MoreScreen,
 };
 
 function SplashScreen() {
@@ -61,42 +64,9 @@ export default function App() {
 }
 
 const splash = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#0f172a",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  icon: {
-    width: 80,
-    height: 80,
-    borderRadius: 22,
-    backgroundColor: "#3b82f6",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-    shadowColor: "#3b82f6",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  iconText: {
-    color: "#fff",
-    fontSize: 36,
-    fontWeight: "800",
-  },
-  title: {
-    color: "#fff",
-    fontSize: 28,
-    fontWeight: "800",
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    color: "#64748b",
-    fontSize: 13,
-    marginTop: 4,
-    letterSpacing: 1.5,
-    textTransform: "uppercase",
-  },
+  container: { flex: 1, backgroundColor: "#0f172a", alignItems: "center", justifyContent: "center" },
+  icon: { width: 80, height: 80, borderRadius: 22, backgroundColor: "#3b82f6", alignItems: "center", justifyContent: "center", marginBottom: 16, shadowColor: "#3b82f6", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.5, shadowRadius: 16, elevation: 10 },
+  iconText: { color: "#fff", fontSize: 36, fontWeight: "800" },
+  title: { color: "#fff", fontSize: 28, fontWeight: "800", letterSpacing: -0.5 },
+  subtitle: { color: "#64748b", fontSize: 13, marginTop: 4, letterSpacing: 1.5, textTransform: "uppercase" },
 });
