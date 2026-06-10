@@ -9,8 +9,9 @@ import { API_BASE_URL } from "../config";
 
 interface Worker {
   id: number;
-  name: string;
-  role: string;
+  first_name: string;
+  last_name: string;
+  role_type: string;
   status: string;
   phone?: string;
 }
@@ -20,8 +21,9 @@ export default function WorkforceScreen() {
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [name, setName] = useState("");
-  const [role, setRole] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [roleType, setRoleType] = useState("");
   const [phone, setPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -46,14 +48,14 @@ export default function WorkforceScreen() {
   };
 
   const addWorker = async () => {
-    if (!name || !role) { Alert.alert("Validation", "Name and role required."); return; }
+    if (!firstName || !lastName || !roleType) { Alert.alert("Validation", "First name, last name, and role required."); return; }
     setSubmitting(true);
     try {
-      await axios.post(`${API_BASE_URL}/workforce/`, { name, role, phone, status: "active" }, {
+      await axios.post(`${API_BASE_URL}/workforce/`, { first_name: firstName, last_name: lastName, role_type: roleType, phone }, {
         headers: { Authorization: `Bearer ${session?.accessToken}` },
       });
       Alert.alert("Success", "Worker added.");
-      setName(""); setRole(""); setPhone("");
+      setFirstName(""); setLastName(""); setRoleType(""); setPhone("");
       setShowForm(false);
       fetchWorkers();
     } catch {
@@ -75,8 +77,9 @@ export default function WorkforceScreen() {
 
         {showForm && (
           <View style={styles.formCard}>
-            <TextInput style={styles.input} placeholder="Full Name" placeholderTextColor="#475569" value={name} onChangeText={setName} />
-            <TextInput style={styles.input} placeholder="Role (e.g. Mason, Supervisor)" placeholderTextColor="#475569" value={role} onChangeText={setRole} />
+            <TextInput style={styles.input} placeholder="First Name" placeholderTextColor="#475569" value={firstName} onChangeText={setFirstName} />
+            <TextInput style={styles.input} placeholder="Last Name" placeholderTextColor="#475569" value={lastName} onChangeText={setLastName} />
+            <TextInput style={styles.input} placeholder="Role (e.g. mason, supervisor)" placeholderTextColor="#475569" value={roleType} onChangeText={setRoleType} />
             <TextInput style={styles.input} placeholder="Phone (optional)" placeholderTextColor="#475569" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
             <TouchableOpacity style={styles.btn} onPress={addWorker} disabled={submitting}>
               {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Add Worker</Text>}
@@ -93,8 +96,8 @@ export default function WorkforceScreen() {
             <View key={w.id} style={styles.card}>
               <View style={styles.cardRow}>
                 <View style={styles.cardLeft}>
-                  <Text style={styles.cardName}>{w.name}</Text>
-                  <Text style={styles.cardRole}>{w.role}</Text>
+                  <Text style={styles.cardName}>{w.first_name} {w.last_name}</Text>
+                  <Text style={styles.cardRole}>{w.role_type}</Text>
                   {w.phone ? <Text style={styles.cardPhone}>{w.phone}</Text> : null}
                 </View>
                 <View style={[styles.statusBadge, w.status === "active" ? styles.activeStatus : styles.inactiveStatus]}>

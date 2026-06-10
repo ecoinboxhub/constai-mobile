@@ -15,7 +15,6 @@ interface Message {
 }
 
 function ChatTab({ session }: { session: any }) {
-  const [projectId, setProjectId] = useState("");
   const [messages, setMessages] = useState<Message[]>([
     { role: "ai", content: "Hello! Ask me anything about your construction projects, risks, or portfolio." },
   ]);
@@ -30,11 +29,7 @@ function ChatTab({ session }: { session: any }) {
     setInput("");
     setLoading(true);
     try {
-      const endpoint = projectId
-        ? `${API_BASE_URL}/project-tracker/projects/${projectId}/chat`
-        : `${API_BASE_URL}/project-tracker/rag/query`;
-      const payload = projectId ? { message: input } : { query: input, top_k: 5 };
-      const res = await axios.post(endpoint, payload, {
+      const res = await axios.post(`${API_BASE_URL}/project-tracker/chat`, { message: input }, {
         headers: { Authorization: `Bearer ${session?.accessToken}` },
       });
       const aiContent = res.data?.response || res.data?.answer || res.data?.message || JSON.stringify(res.data);
@@ -44,18 +39,10 @@ function ChatTab({ session }: { session: any }) {
     } finally {
       setLoading(false);
     }
-  }, [input, projectId, session]);
+  }, [input, session]);
 
   return (
     <View style={tabStyles.container}>
-      <TextInput
-        style={tabStyles.projectInput}
-        placeholder="Project ID (optional — leave blank for portfolio-wide)"
-        placeholderTextColor="#475569"
-        value={projectId}
-        onChangeText={setProjectId}
-        keyboardType="numeric"
-      />
       <ScrollView ref={scrollRef} style={tabStyles.chatArea} onContentSizeChange={() => scrollRef.current?.scrollToEnd()}>
         {messages.map((msg, i) => (
           <View key={i} style={[tabStyles.bubble, msg.role === "user" ? tabStyles.userBubble : tabStyles.aiBubble]}>
@@ -87,16 +74,17 @@ function ChatTab({ session }: { session: any }) {
 }
 
 function RAGTab({ session }: { session: any }) {
-  const [query, setQuery] = useState("");
+  const [projectId, setProjectId] = useState("");
+  const [question, setQuestion] = useState("");
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
   const search = async () => {
-    if (!query.trim()) return;
+    if (!question.trim() || !projectId) { Alert.alert("Validation", "Project ID and question required."); return; }
     setLoading(true);
     try {
       const res = await axios.post(`${API_BASE_URL}/project-tracker/rag/query`,
-        { query, top_k: 5 },
+        { project_id: parseInt(projectId, 10), question },
         { headers: { Authorization: `Bearer ${session?.accessToken}` } },
       );
       setResult(res.data);
@@ -111,7 +99,8 @@ function RAGTab({ session }: { session: any }) {
     <ScrollView style={tabStyles.container}>
       <Text style={tabStyles.sectionTitle}>Knowledge Base Search</Text>
       <Text style={tabStyles.sectionDesc}>Search indexed project documents for specific clauses, specs, or guidelines.</Text>
-      <TextInput style={tabStyles.projectInput} placeholder="e.g. What is the concrete curing time?" placeholderTextColor="#475569" value={query} onChangeText={setQuery} />
+      <TextInput style={tabStyles.projectInput} placeholder="Project ID" placeholderTextColor="#475569" value={projectId} onChangeText={setProjectId} keyboardType="numeric" />
+      <TextInput style={tabStyles.projectInput} placeholder="e.g. What is the concrete curing time?" placeholderTextColor="#475569" value={question} onChangeText={setQuestion} />
       <TouchableOpacity style={tabStyles.actionBtn} onPress={search} disabled={loading}>
         {loading ? <ActivityIndicator color="#fff" /> : <Text style={tabStyles.actionBtnText}>Search Documents</Text>}
       </TouchableOpacity>
@@ -127,6 +116,7 @@ function RAGTab({ session }: { session: any }) {
           <Text style={tabStyles.sourceSnippet}>{s.snippet || s.content?.substring(0, 200) || ""}</Text>
         </View>
       ))}
+      {result?.source_count != null && <Text style={tabStyles.detail}>{result.source_count} sources found</Text>}
     </ScrollView>
   );
 }
@@ -245,4 +235,5 @@ const tabStyles = StyleSheet.create({
   sourceTitle: { color: "#fff", fontSize: 12, fontWeight: "600" },
   sourceSnippet: { color: "#64748b", fontSize: 11, marginTop: 4 },
   recommendation: { color: "#f59e0b", fontSize: 13, marginTop: 6, lineHeight: 18 },
+  detail: { color: "#64748b", fontSize: 12, marginTop: 4 },
 });

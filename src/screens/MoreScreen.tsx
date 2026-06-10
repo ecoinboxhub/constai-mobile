@@ -1,9 +1,11 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Animated, TextInput, Alert, ActivityIndicator } from "react-native";
+import {
+  StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput,
+  Animated, ActivityIndicator, Alert,
+} from "react-native";
 import { useAuth } from "../../context/AuthContext";
 import axios from "axios";
 import { API_BASE_URL } from "../config";
-import { launchCamera, launchImageLibrary } from "react-native-image-picker";
 import { pick, types } from "@react-native-documents/picker";
 
 const TOOLS = [
@@ -14,6 +16,40 @@ const TOOLS = [
   { key: "knowledge", label: "Knowledge Base", icon: "📚" },
   { key: "settings", label: "Settings", icon: "⚙️" },
 ];
+
+export default function MoreScreen() {
+  const [activeView, setActiveView] = useState<string | null>(null);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
+  }, [activeView === null]);
+
+  const handleBack = useCallback(() => setActiveView(null), []);
+
+  if (activeView === "weather") return <WeatherView onBack={handleBack} />;
+  if (activeView === "newLog") return <NewLogView onBack={handleBack} />;
+  if (activeView === "findSite") return <FindSiteView onBack={handleBack} />;
+  if (activeView === "ingest") return <IngestDocView onBack={handleBack} />;
+  if (activeView === "knowledge") return <KnowledgeView onBack={handleBack} />;
+  if (activeView === "settings") return <SettingsView onBack={handleBack} />;
+
+  return (
+    <ScrollView style={s.container}>
+      <Animated.View style={{ opacity: fadeAnim, padding: 16 }}>
+        <View style={s.header}><Text style={s.title}>Tools</Text></View>
+        <View style={s.grid}>
+          {TOOLS.map((tool) => (
+            <TouchableOpacity key={tool.key} style={s.gridCard} onPress={() => setActiveView(tool.key)} activeOpacity={0.7}>
+              <Text style={s.gridIcon}>{tool.icon}</Text>
+              <Text style={s.gridLabel}>{tool.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </Animated.View>
+    </ScrollView>
+  );
+}
 
 function SubHeader({ title, onBack }: { title: string; onBack: () => void }) {
   return (
@@ -35,12 +71,10 @@ function WeatherView({ onBack }: { onBack: () => void }) {
     if (!city) return;
     setLoading(true);
     try {
-      const res = await axios.get(`${API_BASE_URL}/project-tracker/weather/${encodeURIComponent(city)}`, {
-        headers: { Authorization: `Bearer ${session?.accessToken}` },
-      });
+      const res = await axios.get(`${API_BASE_URL}/project-tracker/weather/${encodeURIComponent(city)}`);
       setWeather(res.data);
-    } catch {
-      Alert.alert("Error", "Could not fetch weather data.");
+    } catch (e: any) {
+      Alert.alert("Error", e?.response?.data?.detail || "Could not fetch weather.");
     } finally {
       setLoading(false);
     }
@@ -57,12 +91,13 @@ function WeatherView({ onBack }: { onBack: () => void }) {
         {weather && (
           <View style={s.card}>
             <Text style={s.cardTitle}>{weather.city || city}</Text>
-            <Text style={s.temp}>{weather.temp_c ?? weather.temperature ?? "N/A"}°C</Text>
-            <Text style={s.descText}>{weather.description ?? weather.condition ?? ""}</Text>
-            {weather.humidity && <Text style={s.detail}>Humidity: {weather.humidity}%</Text>}
-            {weather.wind_speed && <Text style={s.detail}>Wind: {weather.wind_speed} km/h</Text>}
-            {weather.concrete_advisory && (
-              <View style={s.advisory}><Text style={s.advisoryText}>🧊 {weather.concrete_advisory}</Text></View>
+            <Text style={s.temp}>{weather.temperature_c ?? "N/A"}°C</Text>
+            <Text style={s.descText}>{weather.condition}{weather.description ? ` — ${weather.description}` : ""}</Text>
+            {weather.humidity_pct != null && <Text style={s.detail}>Humidity: {weather.humidity_pct}%</Text>}
+            {weather.wind_speed_kmh != null && <Text style={s.detail}>Wind: {weather.wind_speed_kmh} km/h</Text>}
+            {weather.rainfall_mm != null && <Text style={s.detail}>Rainfall: {weather.rainfall_mm} mm</Text>}
+            {weather.severe_alert && (
+              <View style={s.advisory}><Text style={s.advisoryText}>⚠️ {weather.severe_alert}</Text></View>
             )}
           </View>
         )}
@@ -72,23 +107,19 @@ function WeatherView({ onBack }: { onBack: () => void }) {
 }
 
 function NewLogView({ onBack }: { onBack: () => void }) {
-  const { session } = useAuth();
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+  const [projectId, setProjectId] = useState("");
+  const [logText, setLogText] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const submitLog = async () => {
-    if (!title) { Alert.alert("Validation", "Enter a log title."); return; }
+    if (!projectId || !logText) { Alert.alert("Validation", "Project ID and log text required."); return; }
     setSubmitting(true);
     try {
-      await axios.post(`${API_BASE_URL}/logs/`, { title, description, log_type: "mobile" }, {
-        headers: { Authorization: `Bearer ${session?.accessToken}` },
-      });
+      await axios.post(`${API_BASE_URL}/logs/`, { project_id: projectId, log_text: logText });
       Alert.alert("Success", "Log entry created.");
-      setTitle("");
-      setDescription("");
-    } catch {
-      Alert.alert("Error", "Failed to create log.");
+      setProjectId(""); setLogText("");
+    } catch (e: any) {
+      Alert.alert("Error", e?.response?.data?.detail || "Failed to create log.");
     } finally {
       setSubmitting(false);
     }
@@ -98,8 +129,8 @@ function NewLogView({ onBack }: { onBack: () => void }) {
     <ScrollView style={s.container}>
       <SubHeader title="New Log" onBack={onBack} />
       <View style={s.content}>
-        <TextInput style={s.input} placeholder="Log Title" placeholderTextColor="#475569" value={title} onChangeText={setTitle} />
-        <TextInput style={[s.input, s.textArea]} placeholder="Description (optional)" placeholderTextColor="#475569" multiline numberOfLines={4} value={description} onChangeText={setDescription} />
+        <TextInput style={s.input} placeholder="Project ID" placeholderTextColor="#475569" value={projectId} onChangeText={setProjectId} keyboardType="numeric" />
+        <TextInput style={[s.input, s.textArea]} placeholder="Log text (describe the activity...)" placeholderTextColor="#475569" multiline numberOfLines={4} value={logText} onChangeText={setLogText} />
         <TouchableOpacity style={s.btn} onPress={submitLog} disabled={submitting}>
           {submitting ? <ActivityIndicator color="#fff" /> : <Text style={s.btnText}>Submit Log</Text>}
         </TouchableOpacity>
@@ -122,9 +153,10 @@ function FindSiteView({ onBack }: { onBack: () => void }) {
         headers: { Authorization: `Bearer ${session?.accessToken}` },
         params: { search: query },
       });
-      setResults(Array.isArray(res.data) ? res.data : res.data?.projects || []);
-    } catch {
-      Alert.alert("Error", "Search failed.");
+      const data = Array.isArray(res.data) ? res.data : res.data?.projects || [];
+      setResults(data);
+    } catch (e: any) {
+      Alert.alert("Error", e?.response?.data?.detail || "Search failed.");
     } finally {
       setLoading(false);
     }
@@ -144,7 +176,7 @@ function FindSiteView({ onBack }: { onBack: () => void }) {
             <Text style={s.resultLoc}>{p.location || ""}</Text>
           </View>
         ))}
-        {results.length === 0 && !loading && <Text style={s.empty}>No results found</Text>}
+        {results.length === 0 && !loading && query ? <Text style={s.empty}>No projects found</Text> : null}
       </View>
     </ScrollView>
   );
@@ -164,18 +196,18 @@ function IngestDocView({ onBack }: { onBack: () => void }) {
   };
 
   const uploadAndIndex = async () => {
-    if (!selectedFile || !projectId) { Alert.alert("Validation", "Select a project and file."); return; }
+    if (!selectedFile || !projectId) { Alert.alert("Validation", "Select a project ID and file."); return; }
     setUploading(true);
     try {
       const formData = new FormData();
       formData.append("file", { uri: selectedFile.uri, name: selectedFile.name, type: selectedFile.type } as any);
-      await axios.post(`${API_BASE_URL}/project-tracker/documents/upload?project_id=${projectId}`, formData, {
+      const res = await axios.post(`${API_BASE_URL}/project-tracker/documents/upload?project_id=${projectId}`, formData, {
         headers: { Authorization: `Bearer ${session?.accessToken}`, "Content-Type": "multipart/form-data" },
       });
-      Alert.alert("Success", "Document uploaded and indexed to vector store.");
+      Alert.alert("Success", `Uploaded and indexed ${res.data?.indexed_chunks || 0} chunks to vector store.`);
       setSelectedFile(null);
-    } catch {
-      Alert.alert("Error", "Upload failed.");
+    } catch (e: any) {
+      Alert.alert("Error", e?.response?.data?.detail || "Upload failed.");
     } finally {
       setUploading(false);
     }
@@ -192,10 +224,10 @@ function IngestDocView({ onBack }: { onBack: () => void }) {
         {selectedFile && (
           <View style={s.fileInfo}>
             <Text style={s.fileName}>{selectedFile.name}</Text>
-            <Text style={s.fileSize}>{Math.round(selectedFile.size / 1024)} KB</Text>
+            <Text style={s.fileSize}>{Math.round((selectedFile.size || 0) / 1024)} KB</Text>
           </View>
         )}
-        <TouchableOpacity style={[s.btn, { marginTop: 16, opacity: selectedFile ? 1 : 0.5 }]} onPress={uploadAndIndex} disabled={!selectedFile || uploading}>
+        <TouchableOpacity style={[s.btn, { marginTop: 16, opacity: selectedFile && projectId ? 1 : 0.5 }]} onPress={uploadAndIndex} disabled={!selectedFile || !projectId || uploading}>
           {uploading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnText}>Index to Vector Store</Text>}
         </TouchableOpacity>
       </View>
@@ -205,21 +237,22 @@ function IngestDocView({ onBack }: { onBack: () => void }) {
 
 function KnowledgeView({ onBack }: { onBack: () => void }) {
   const { session } = useAuth();
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<any>(null);
+  const [question, setQuestion] = useState("");
+  const [projectId, setProjectId] = useState("");
+  const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
   const search = async () => {
-    if (!query) return;
+    if (!question.trim() || !projectId) { Alert.alert("Validation", "Project ID and question required."); return; }
     setLoading(true);
     try {
       const res = await axios.post(`${API_BASE_URL}/project-tracker/rag/query`,
-        { query, top_k: 5 },
+        { project_id: parseInt(projectId, 10), question },
         { headers: { Authorization: `Bearer ${session?.accessToken}` } },
       );
-      setResults(res.data);
-    } catch {
-      Alert.alert("Error", "Knowledge search failed.");
+      setResult(res.data);
+    } catch (e: any) {
+      Alert.alert("Error", e?.response?.data?.detail || "Search failed.");
     } finally {
       setLoading(false);
     }
@@ -229,21 +262,23 @@ function KnowledgeView({ onBack }: { onBack: () => void }) {
     <ScrollView style={s.container}>
       <SubHeader title="Knowledge Base" onBack={onBack} />
       <View style={s.content}>
-        <TextInput style={s.input} placeholder="Ask about project docs..." placeholderTextColor="#475569" value={query} onChangeText={setQuery} />
+        <TextInput style={s.input} placeholder="Project ID" placeholderTextColor="#475569" value={projectId} onChangeText={setProjectId} keyboardType="numeric" />
+        <TextInput style={s.input} placeholder="Ask about project documents..." placeholderTextColor="#475569" value={question} onChangeText={setQuestion} />
         <TouchableOpacity style={s.btn} onPress={search} disabled={loading}>
           {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnText}>Search</Text>}
         </TouchableOpacity>
-        {results?.answer && (
+        {result?.answer && (
           <View style={s.card}>
             <Text style={s.cardTitle}>Answer</Text>
-            <Text style={s.answerText}>{results.answer}</Text>
+            <Text style={s.answerText}>{result.answer}</Text>
           </View>
         )}
-        {results?.sources?.map((s: any, i: number) => (
-          <View key={i} style={s.sourceRow}>
-            <Text style={s.sourceText}>{s.title || s.filename || `Source ${i + 1}`}</Text>
+        {result?.sources?.map((src: any, i: number) => (
+          <View key={i} style={s.sourceCard}>
+            <Text style={s.sourceText}>{typeof src === "string" ? src : src.title || `Source ${i + 1}`}</Text>
           </View>
         ))}
+        {result?.source_count != null && <Text style={s.detail}>{result.source_count} sources found</Text>}
       </View>
     </ScrollView>
   );
@@ -253,6 +288,7 @@ function SettingsView({ onBack }: { onBack: () => void }) {
   const { session, isGuest, biometricSupported, biometricEnabled, setBiometricPreference, logout } = useAuth();
   return (
     <ScrollView style={s.container}>
+      <SubHeader title="Settings" onBack={onBack} />
       <View style={s.content}>
         <View style={s.card}>
           <Text style={s.cardTitle}>{isGuest ? "👤 Guest" : "👤 Account"}</Text>
@@ -271,56 +307,16 @@ function SettingsView({ onBack }: { onBack: () => void }) {
             <Text style={s.cardTitle}>🔒 Security</Text>
             <View style={s.switchRow}>
               <Text style={s.switchLabel}>Biometric unlock</Text>
-              <TouchableOpacity
-                onPress={() => setBiometricPreference(!biometricEnabled)}
-                style={[s.toggle, biometricEnabled && s.toggleOn]}
-              >
+              <TouchableOpacity onPress={() => setBiometricPreference(!biometricEnabled)} style={[s.toggle, biometricEnabled && s.toggleOn]}>
                 <View style={[s.toggleThumb, biometricEnabled && s.toggleThumbOn]} />
               </TouchableOpacity>
             </View>
           </View>
         )}
-        <View style={s.card}>
-          <Text style={s.cardTitle}>ℹ️ About</Text>
-          <Text style={s.detail}>Version 1.1.0</Text>
-          <Text style={s.detail}>ConstAI Field Console</Text>
-        </View>
         <TouchableOpacity style={s.logoutBtn} onPress={logout}>
           <Text style={s.logoutText}>{isGuest ? "Exit Guest Mode" : "Sign Out"}</Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
-  );
-}
-
-export default function MoreScreen() {
-  const [activeView, setActiveView] = useState<string | null>(null);
-
-  const handleBack = useCallback(() => setActiveView(null), []);
-
-  if (activeView === "weather") return <WeatherView onBack={handleBack} />;
-  if (activeView === "newLog") return <NewLogView onBack={handleBack} />;
-  if (activeView === "findSite") return <FindSiteView onBack={handleBack} />;
-  if (activeView === "ingest") return <IngestDocView onBack={handleBack} />;
-  if (activeView === "knowledge") return <KnowledgeView onBack={handleBack} />;
-  if (activeView === "settings") return <SettingsView onBack={handleBack} />;
-
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  useEffect(() => { Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start(); }, []);
-
-  return (
-    <ScrollView style={s.container}>
-      <Animated.View style={{ opacity: fadeAnim, padding: 16 }}>
-        <View style={s.header}><Text style={s.title}>Tools</Text></View>
-        <View style={s.grid}>
-          {TOOLS.map((tool) => (
-            <TouchableOpacity key={tool.key} style={s.gridCard} onPress={() => setActiveView(tool.key)} activeOpacity={0.7}>
-              <Text style={s.gridIcon}>{tool.icon}</Text>
-              <Text style={s.gridLabel}>{tool.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </Animated.View>
     </ScrollView>
   );
 }
@@ -351,7 +347,7 @@ const s = StyleSheet.create({
   advisory: { backgroundColor: "rgba(59,130,246,0.15)", borderRadius: 8, padding: 10, marginTop: 8 },
   advisoryText: { color: "#93c5fd", fontSize: 12 },
   answerText: { color: "#e2e8f0", fontSize: 14, lineHeight: 22 },
-  sourceRow: { backgroundColor: "#1e293b", borderRadius: 8, padding: 10, marginBottom: 6 },
+  sourceCard: { backgroundColor: "#1e293b", borderRadius: 8, padding: 10, marginBottom: 6, borderLeftWidth: 3, borderLeftColor: "#3b82f6" },
   sourceText: { color: "#94a3b8", fontSize: 12 },
   resultRow: { backgroundColor: "#1e293b", borderRadius: 10, padding: 14, marginBottom: 8 },
   resultName: { color: "#fff", fontSize: 14, fontWeight: "600" },
@@ -366,6 +362,6 @@ const s = StyleSheet.create({
   toggleOn: { backgroundColor: "#3b82f6" },
   toggleThumb: { width: 22, height: 22, borderRadius: 11, backgroundColor: "#fff" },
   toggleThumbOn: { alignSelf: "flex-end" },
-  logoutBtn: { backgroundColor: "rgba(239,68,68,0.15)", borderRadius: 12, paddingVertical: 14, alignItems: "center", borderWidth: 1, borderColor: "rgba(239,68,68,0.3)" },
+  logoutBtn: { backgroundColor: "rgba(239,68,68,0.15)", borderRadius: 12, paddingVertical: 14, alignItems: "center", borderWidth: 1, borderColor: "rgba(239,68,68,0.3)", marginTop: 12 },
   logoutText: { color: "#ef4444", fontWeight: "700", fontSize: 14 },
 });

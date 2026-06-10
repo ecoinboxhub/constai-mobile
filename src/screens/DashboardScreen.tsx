@@ -54,7 +54,7 @@ export default function DashboardScreen() {
 
   const fetchPortfolioRisk = async () => {
     try {
-      const res = await axios.get(`${API_BASE_URL}/dashboard/`, {
+      const res = await axios.get(`${API_BASE_URL}/project-tracker/analytics`, {
         headers: { Authorization: `Bearer ${session?.accessToken}` },
       });
       setPortfolioRisk(res.data);
