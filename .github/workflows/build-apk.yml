@@ -29,6 +29,13 @@ jobs:
 
       - run: npm ci
 
+      - name: Patch jcenter() references in native modules
+        run: |
+          find node_modules -name "build.gradle" -exec grep -l 'jcenter()' {} \; | while read f; do
+            echo "Patching $f"
+            sed -i 's/jcenter()/mavenCentral()/g' "$f"
+          done
+
       - run: chmod +x android/gradlew && cd android && ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a
 
       - name: Get APK path
