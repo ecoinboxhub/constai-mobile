@@ -1,4 +1,4 @@
-name: Build APK
+name: Build & Release
 
 on:
   push:
@@ -36,14 +36,23 @@ jobs:
             sed -i 's/jcenter()/mavenCentral()/g' "$f"
           done
 
-      - run: chmod +x android/gradlew && cd android && ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a
+      - run: chmod +x android/gradlew && cd android && ./gradlew assembleRelease bundleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a
 
-      - name: Get APK path
+      - name: Find APK
         run: |
           APK=$(find android -name "*.apk" -type f | head -1)
           echo "apk_path=$APK" >> $GITHUB_OUTPUT
           echo "apk_name=$(basename $APK)" >> $GITHUB_OUTPUT
+          echo "APK size: $(stat -c%s $APK) bytes"
         id: apk
+
+      - name: Find AAB
+        run: |
+          AAB=$(find android -name "*.aab" -type f | head -1)
+          echo "aab_path=$AAB" >> $GITHUB_OUTPUT
+          echo "aab_name=$(basename $AAB)" >> $GITHUB_OUTPUT
+          echo "AAB size: $(stat -c%s $AAB) bytes"
+        id: aab
 
       - uses: softprops/action-gh-release@v2
         with:
@@ -53,7 +62,12 @@ jobs:
             ## ConstAI Field Console v1.1.${{ github.run_number }}
 
             Mobile field app for ConstAI — predictive construction management.
-            Built with bare React Native (Expo removed) for minimal APK size.
+            Built with bare React Native (Expo removed) for minimal size.
+
+            **Install AAB via bundletool:**
+            ```
+            bundletool install-apks --apks=app-release.aab
+            ```
 
             **Features:**
             - Email & SMS OTP login
@@ -61,6 +75,7 @@ jobs:
             - Offline project management (SQLite)
             - Background sync engine
             - Photo & document capture
-            - Background telemetry
-          files: ${{ steps.apk.outputs.apk_path }}
+          files: |
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/bundle/release/app-release.aab
           fail_on_unmatched_files: true
