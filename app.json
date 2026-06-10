@@ -34,7 +34,7 @@
             "enableShrinkResourcesInReleaseBuilds": true,
             "useLegacyPackaging": true,
             "extraMavenRepos": [],
-            "kotlinVersion": "2.1.0"
+            "kotlinVersion": "2.1.20"
           }
         }
       ]
