@@ -10,9 +10,8 @@
 -keep class com.facebook.jni.** { *; }
 -keep class * implements com.facebook.react.bridge.NativeModule { *; }
 -keep class * implements com.facebook.react.bridge.ReactContextBaseJavaModule { *; }
--keep class expo.modules.core.interfaces.services.KeepAwakeManager { *; }
--keep class expo.modules.kotlin.types.AnyTypeProvider { *; }
--keep class expo.modules.kotlin.types.LazyKType { *; }
+-keep class expo.modules.** { *; }
 -dontwarn okhttp3.**
 -dontwarn okio.**
 -dontwarn javax.annotation.**
+-dontwarn expo.modules.**
