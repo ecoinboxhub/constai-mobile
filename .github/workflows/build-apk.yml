@@ -1,0 +1,63 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - run: npm ci
+
+      - run: npx expo prebuild --platform android --no-install
+
+      - run: cp scripts/proguard-rules.pro android/app/proguard-rules.pro
+
+      - run: cd android && ./gradlew assembleRelease --no-daemon
+
+      - name: Get APK path
+        run: |
+          APK=$(find android -name "*.apk" -type f | head -1)
+          echo "apk_path=$APK" >> $GITHUB_OUTPUT
+          echo "apk_name=$(basename $APK)" >> $GITHUB_OUTPUT
+        id: apk
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.0
+          name: ConstAI v1.0.0
+          body: |
+            ## ConstAI Field Console v1.0.0
+
+            Mobile field app for ConstAI — predictive construction management.
+
+            **Features:**
+            - Email & SMS OTP login
+            - Biometric authentication
+            - Offline project management (SQLite)
+            - Background sync engine
+            - Photo, document & voice note capture
+            - Push notifications
+            - Background telemetry
+          files: ${{ steps.apk.outputs.apk_path }}
+          fail_on_unmatched_files: true
