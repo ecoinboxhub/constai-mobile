@@ -32,7 +32,7 @@
           "android": {
             "enableProguardInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
-            "useLegacyPackaging": true,
+            "useLegacyPackaging": false,
             "extraMavenRepos": [],
             "kotlinVersion": "2.1.20"
           }

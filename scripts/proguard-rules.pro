@@ -1,14 +1,26 @@
 -dontusemixedcaseclassnames
 -dontskipnonpubliclibraryclasses
 -verbose
--optimizationpasses 5
+-overloadaggressively
 -repackageclasses ''
+-allowaccessmodification
+-mergeinterfacesaggressively
 -keep class com.facebook.hermes.** { *; }
 -keep class com.facebook.jni.** { *; }
--keep class * implements com.facebook.react.bridge.NativeModule { *; }
--keep class * implements com.facebook.react.bridge.ReactContextBaseJavaModule { *; }
--keep class expo.modules.** { *; }
--keep class com.facebook.react.** { *; }
+-keep class com.facebook.react.common.** { *; }
+-keep class com.facebook.react.bridge.** { *; }
+-keep class com.facebook.react.modules.** { *; }
+-keep class com.facebook.react.uimanager.** { *; }
+-keep class com.facebook.react.views.** { *; }
+-keep class com.facebook.react.turbomodule.** { *; }
+-keep class expo.modules.kotlin.types.AnyTypeProvider { *; }
+-keep class expo.modules.kotlin.types.LazyKType { *; }
+-keep class expo.modules.core.interfaces.services.KeepAwakeManager { *; }
+-keep class expo.modules.adapters.** { *; }
+-keep class expo.modules.adapters.react.** { *; }
+-keepclassmembers class ** {
+    @java.lang.Override *;
+}
 -dontwarn okhttp3.**
 -dontwarn okio.**
 -dontwarn javax.annotation.**
