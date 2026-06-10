@@ -1,0 +1,3 @@
+-keep class com.facebook.hermes.** { *; }
+-keep class com.facebook.jni.** { *; }
+-keep class * implements com.facebook.react.bridge.NativeModule { *; }

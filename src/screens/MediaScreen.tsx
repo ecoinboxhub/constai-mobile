@@ -7,17 +7,14 @@ import {
   ScrollView,
   Alert,
 } from "react-native";
-import { getDbConnection } from "../../services/dbService";
-import { capturePhotoOnSite, selectGalleryPhoto, selectDocumentFile, VoiceNoteRecorder } from "../../services/mediaService";
+import { getDbConnection, getAllAsync } from "../../services/dbService";
+import { capturePhotoOnSite, selectGalleryPhoto, selectDocumentFile } from "../../services/mediaService";
 import { getUploadQueueSummary } from "../../services/uploadService";
 import { ProjectDTO } from "../../shared/types";
-
-const recorder = new VoiceNoteRecorder();
 
 export default function MediaScreen() {
   const [projects, setProjects] = useState<ProjectDTO[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
   const [uploadSummary, setUploadSummary] = useState({ pending: 0, uploading: 0, synced: 0, failed: 0 });
 
   useEffect(() => {
@@ -27,7 +24,7 @@ export default function MediaScreen() {
   const loadData = async () => {
     try {
       const db = await getDbConnection();
-      const rows = await db.getAllAsync<ProjectDTO>("SELECT * FROM projects ORDER BY id DESC;");
+      const rows = await getAllAsync<ProjectDTO>(db, "SELECT * FROM projects ORDER BY id DESC;");
       setProjects(rows);
       const summary = await getUploadQueueSummary();
       setUploadSummary(summary);
@@ -83,26 +80,6 @@ export default function MediaScreen() {
     }
   };
 
-  const handleVoice = async () => {
-    if (!requireProject()) return;
-    try {
-      if (!isRecording) {
-        await recorder.startRecording();
-        setIsRecording(true);
-      } else {
-        const result = await recorder.stopRecording(selectedId!.toString());
-        setIsRecording(false);
-        if (result) {
-          Alert.alert("Success", "Voice note queued.");
-          await loadData();
-        }
-      }
-    } catch (err: any) {
-      setIsRecording(false);
-      Alert.alert("Error", err.message);
-    }
-  };
-
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -137,12 +114,6 @@ export default function MediaScreen() {
         <View style={styles.grid}>
           <TouchableOpacity style={styles.actionBtn} onPress={handleDocument}>
             <Text style={styles.actionBtnText}>Document</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.actionBtn, isRecording && styles.activeBtn]}
-            onPress={handleVoice}
-          >
-            <Text style={styles.actionBtnText}>{isRecording ? "Stop" : "Voice"}</Text>
           </TouchableOpacity>
         </View>
       </View>

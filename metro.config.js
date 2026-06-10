@@ -1,21 +1,11 @@
-const { getDefaultConfig } = require("expo/metro-config");
+const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
 
-const config = getDefaultConfig(__dirname);
+/**
+ * Metro configuration
+ * https://reactnative.dev/docs/metro
+ *
+ * @type {import('@react-native/metro-config').MetroConfig}
+ */
+const config = {};
 
-config.transformer.hermesParser = true;
-config.transformer.minifierConfig = {
-  ...config.transformer.minifierConfig,
-  mangle: true,
-  compress: {
-    ...(config.transformer.minifierConfig?.compress ?? {}),
-    dead_code: true,
-    drop_console: true,
-    drop_debugger: true,
-    pure_funcs: ["console.log", "console.warn", "console.info"],
-  },
-  output: { comments: false },
-};
-
-config.resolver.sourceExts = [...config.resolver.sourceExts, "mjs"];
-
-module.exports = config;
+module.exports = mergeConfig(getDefaultConfig(__dirname), config);

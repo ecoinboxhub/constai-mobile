@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import LoginScreen from "./src/screens/LoginScreen";
@@ -7,8 +7,6 @@ import ProjectsScreen from "./src/screens/ProjectsScreen";
 import MediaScreen from "./src/screens/MediaScreen";
 import SettingsScreen from "./src/screens/SettingsScreen";
 import TabNavigator from "./src/navigation/TabNavigator";
-import { getPendingSyncItems } from "./services/dbService";
-import { registerBackgroundTelemetryTask } from "./services/telemetryService";
 
 const TABS = [
   { key: "dashboard", label: "Dashboard", icon: "\u2302" },
@@ -41,17 +39,6 @@ function AppNavigator() {
 }
 
 export default function App() {
-  useEffect(() => {
-    registerBackgroundTelemetryTask(async () => {
-      try {
-        const items = await getPendingSyncItems();
-        return items.length;
-      } catch {
-        return 0;
-      }
-    });
-  }, []);
-
   return (
     <AuthProvider>
       <AppNavigator />

@@ -1,8 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import * as LocalAuthentication from "expo-local-authentication";
+import ReactNativeBiometrics from "react-native-biometrics";
 import axios from "axios";
 import { AuthSession, parseJwt } from "../shared/auth";
 import { getAuthSession, saveAuthSession, clearAuthSession } from "../services/authService";
+
+const rnBiometrics = new ReactNativeBiometrics();
 
 interface AuthContextType {
   session: AuthSession | null;
@@ -32,13 +34,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const cached = await getAuthSession();
         
-        // Check local biometric support
-        const hasHardware = await LocalAuthentication.hasHardwareAsync();
-        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-        setBiometricSupported(hasHardware && isEnrolled);
+        const { available } = await rnBiometrics.isSensorAvailable();
+        setBiometricSupported(available);
 
         if (cached) {
-          // Verify if session should auto-login
           setSession(cached);
         }
       } catch (err) {
@@ -60,7 +59,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const { access_token, refresh_token } = response.data;
 
-      // Use shared parseJwt helper
       const payload = parseJwt(access_token);
       if (!payload) {
         throw new Error("Invalid JWT token payload format.");
@@ -143,13 +141,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!biometricSupported) return false;
     
     try {
-      const result = await LocalAuthentication.authenticateAsync({
+      const { success } = await rnBiometrics.simplePrompt({
         promptMessage: "Authenticate to unlock ConstAI Field Console",
-        fallbackLabel: "Use Password",
-        disableDeviceFallback: false,
       });
       
-      return result.success;
+      return success;
     } catch (err) {
       console.error("Biometric authentication error", err);
       return false;

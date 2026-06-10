@@ -1,6 +1,6 @@
 import NetInfo from "@react-native-community/netinfo";
 import axios from "axios";
-import { getDbConnection, getPendingSyncItems, markSyncItemCompleted, queueSyncItem } from "./dbService";
+import { getDbConnection, getPendingSyncItems, markSyncItemCompleted, queueSyncItem, getAllAsync } from "./dbService";
 import { SyncQueueItem } from "../shared/types";
 import {
   recordOfflineStart,
@@ -12,8 +12,7 @@ import {
 
 let isSyncing = false;
 
-// Configurable API base URL matching local and production configurations
-import { API_BASE_URL } from "../src/config"; 
+import { API_BASE_URL } from "../src/config";
 
 export async function checkInternetConnection(): Promise<boolean> {
   const state = await NetInfo.fetch();
@@ -61,7 +60,6 @@ export async function processSyncQueue(getToken: () => Promise<string | null>) {
 
       while (!success && retryCount < maxRetries) {
         try {
-          // Reconcile single transaction with backend sync API
           const response = await axios.post(
             `${API_BASE_URL}/sync/reconcile`,
             {
@@ -75,7 +73,7 @@ export async function processSyncQueue(getToken: () => Promise<string | null>) {
                 Authorization: `Bearer ${token}`,
                 "Content-Type": "application/json",
               },
-              timeout: 10000, // 10 second timeout for flaky connections
+              timeout: 10000,
             }
           );
 
@@ -90,12 +88,10 @@ export async function processSyncQueue(getToken: () => Promise<string | null>) {
           const status = error?.response?.status;
           
           if (status === 400 || status === 422) {
-            // Invalid data schema payload - discard or quarantine to prevent blocking the queue
             console.error(`Sync engine: Schema validation error for item ${item.client_uuid}. Discarding task.`, error?.response?.data);
             await markSyncItemCompleted(item.client_uuid);
-            success = true; // Set to true to exit loop and continue queue
+            success = true;
           } else {
-            // Flaky connection - exponential backoff before retry
             const delay = Math.pow(2, retryCount) * 1000;
             console.warn(`Sync engine: Network issue syncing ${item.client_uuid}. Retrying in ${delay}ms...`);
             await new Promise((resolve) => setTimeout(resolve, delay));
@@ -109,7 +105,6 @@ export async function processSyncQueue(getToken: () => Promise<string | null>) {
       }
     }
     
-    // Register sync telemetry metrics
     const syncDuration = Date.now() - startTime;
     setLastSyncDuration(syncDuration);
     await submitTelemetryReport(pendingItems.length);
@@ -120,35 +115,32 @@ export async function processSyncQueue(getToken: () => Promise<string | null>) {
   }
 }
 
-// Queue offline transaction helper
 export async function performOfflineWrite(
   table: string,
   action: 'INSERT' | 'UPDATE' | 'DELETE',
   clientUuid: string,
   data: Record<string, any>
 ) {
-  // 1. Write immediately to local database table
   const db = await getDbConnection();
   const columns = Object.keys(data).join(", ");
   const placeholders = Object.keys(data).map(() => "?").join(", ");
   const values = Object.values(data);
 
   if (action === 'INSERT') {
-    await db.runAsync(
+    await db.executeSql(
       `INSERT OR REPLACE INTO ${table} (${columns}) VALUES (${placeholders});`,
       values
     );
   } else if (action === 'UPDATE') {
     const sets = Object.keys(data).map((col) => `${col} = ?`).join(", ");
-    await db.runAsync(
+    await db.executeSql(
       `UPDATE ${table} SET ${sets} WHERE id = ?;`,
       [...values, data.id]
     );
   } else if (action === 'DELETE') {
-    await db.runAsync(`DELETE FROM ${table} WHERE id = ?;`, [data.id]);
+    await db.executeSql(`DELETE FROM ${table} WHERE id = ?;`, [data.id]);
   }
 
-  // 2. Insert transaction task into sync_queue
   await queueSyncItem({
     client_uuid: clientUuid,
     table_name: table,
@@ -159,7 +151,6 @@ export async function performOfflineWrite(
   console.log(`Sync engine: Transaction queued offline inside SQLite [${table} - ${action}]`);
 }
 
-// Start Network Monitoring listener
 export function startSyncListener(getToken: () => Promise<string | null>) {
   NetInfo.addEventListener((state) => {
     if (state.isConnected && state.isInternetReachable) {

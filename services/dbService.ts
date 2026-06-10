@@ -1,21 +1,29 @@
-import * as SQLite from "expo-sqlite";
+import SQLite from 'react-native-sqlite-storage';
 import { SyncQueueItem } from "../shared/types";
 
-// Stable Expo SQLite modern synchronous database opener
+SQLite.enablePromise(true);
+
 const DB_NAME = "constai_offline.db";
 
+export async function getAllAsync<T>(db: any, sql: string, params?: any[]): Promise<T[]> {
+  const [results] = await db.executeSql(sql, params || []);
+  const rows: T[] = [];
+  for (let i = 0; i < results.rows.length; i++) {
+    rows.push(results.rows.item(i));
+  }
+  return rows;
+}
+
 export async function getDbConnection() {
-  return await SQLite.openDatabaseAsync(DB_NAME);
+  return await SQLite.openDatabase({ name: DB_NAME, location: 'default' });
 }
 
 export async function initOfflineDatabase() {
   const db = await getDbConnection();
   
-  // Enable foreign keys
-  await db.execAsync("PRAGMA foreign_keys = ON;");
+  await db.executeSql("PRAGMA foreign_keys = ON;");
 
-  // Create Projects cache table
-  await db.execAsync(`
+  await db.executeSql(`
     CREATE TABLE IF NOT EXISTS projects (
       id INTEGER PRIMARY KEY,
       name TEXT NOT NULL,
@@ -43,8 +51,7 @@ export async function initOfflineDatabase() {
     );
   `);
 
-  // Create Tasks table (Offline-first tasks tracking)
-  await db.execAsync(`
+  await db.executeSql(`
     CREATE TABLE IF NOT EXISTS tasks (
       id TEXT PRIMARY KEY,
       project_id TEXT NOT NULL,
@@ -58,8 +65,7 @@ export async function initOfflineDatabase() {
     );
   `);
 
-  // Create Inspections table (Inspections logs with GPS geotags)
-  await db.execAsync(`
+  await db.executeSql(`
     CREATE TABLE IF NOT EXISTS inspections (
       id TEXT PRIMARY KEY,
       project_id TEXT NOT NULL,
@@ -73,28 +79,26 @@ export async function initOfflineDatabase() {
     );
   `);
 
-  // Create Uploads queue table (Pending image/document uploads)
-  await db.execAsync(`
+  await db.executeSql(`
     CREATE TABLE IF NOT EXISTS uploads (
       id TEXT PRIMARY KEY,
       project_id TEXT NOT NULL,
       file_name TEXT NOT NULL,
       file_uri TEXT NOT NULL,
       file_type TEXT NOT NULL,
-      is_uploaded INTEGER DEFAULT 0, -- Boolean: 0 = false, 1 = true
+      is_uploaded INTEGER DEFAULT 0,
       created_at TEXT
     );
   `);
 
-  // Create Sync Queue table
-  await db.execAsync(`
+  await db.executeSql(`
     CREATE TABLE IF NOT EXISTS sync_queue (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       client_uuid TEXT UNIQUE NOT NULL,
       table_name TEXT NOT NULL,
       action TEXT NOT NULL CHECK(action IN ('INSERT', 'UPDATE', 'DELETE')),
-      payload TEXT NOT NULL, -- JSON serialized row data
-      is_dirty INTEGER DEFAULT 1, -- Boolean: 0 = synced, 1 = dirty
+      payload TEXT NOT NULL,
+      is_dirty INTEGER DEFAULT 1,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `);
@@ -102,10 +106,9 @@ export async function initOfflineDatabase() {
   console.log("Local SQLite offline database initialized successfully.");
 }
 
-// Sync Queue Helpers
 export async function queueSyncItem(item: Omit<SyncQueueItem, "id" | "is_dirty" | "created_at">) {
   const db = await getDbConnection();
-  await db.runAsync(
+  await db.executeSql(
     `INSERT OR REPLACE INTO sync_queue (client_uuid, table_name, action, payload, is_dirty) 
      VALUES (?, ?, ?, ?, 1);`,
     [item.client_uuid, item.table_name, item.action, item.payload]
@@ -114,15 +117,15 @@ export async function queueSyncItem(item: Omit<SyncQueueItem, "id" | "is_dirty" 
 
 export async function getPendingSyncItems(): Promise<SyncQueueItem[]> {
   const db = await getDbConnection();
-  const rows = await db.getAllAsync<SyncQueueItem>(
+  return await getAllAsync<SyncQueueItem>(
+    db,
     "SELECT * FROM sync_queue WHERE is_dirty = 1 ORDER BY id ASC;"
   );
-  return rows;
 }
 
 export async function markSyncItemCompleted(client_uuid: string) {
   const db = await getDbConnection();
-  await db.runAsync(
+  await db.executeSql(
     "UPDATE sync_queue SET is_dirty = 0 WHERE client_uuid = ?;",
     [client_uuid]
   );
@@ -130,5 +133,5 @@ export async function markSyncItemCompleted(client_uuid: string) {
 
 export async function clearSyncedItems() {
   const db = await getDbConnection();
-  await db.runAsync("DELETE FROM sync_queue WHERE is_dirty = 0;");
+  await db.executeSql("DELETE FROM sync_queue WHERE is_dirty = 0;");
 }

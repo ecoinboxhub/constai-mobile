@@ -1,17 +1,17 @@
-import * as SecureStore from "expo-secure-store";
+import EncryptedStorage from 'react-native-encrypted-storage';
 import axios from "axios";
 import { AuthSession, AUTH_KEYS, parseJwt } from "../shared/auth";
 
 import { API_BASE_URL } from "../src/config";
 
 export async function saveAuthSession(session: AuthSession) {
-  await SecureStore.setItemAsync(AUTH_KEYS.TOKEN_SESSION, JSON.stringify(session));
-  await SecureStore.setItemAsync(AUTH_KEYS.ACCESS_TOKEN, session.accessToken);
-  await SecureStore.setItemAsync(AUTH_KEYS.REFRESH_TOKEN, session.refreshToken);
+  await EncryptedStorage.setItem(AUTH_KEYS.TOKEN_SESSION, JSON.stringify(session));
+  await EncryptedStorage.setItem(AUTH_KEYS.ACCESS_TOKEN, session.accessToken);
+  await EncryptedStorage.setItem(AUTH_KEYS.REFRESH_TOKEN, session.refreshToken);
 }
 
 export async function getAuthSession(): Promise<AuthSession | null> {
-  const sessionStr = await SecureStore.getItemAsync(AUTH_KEYS.TOKEN_SESSION);
+  const sessionStr = await EncryptedStorage.getItem(AUTH_KEYS.TOKEN_SESSION);
   if (!sessionStr) return null;
   try {
     return JSON.parse(sessionStr) as AuthSession;
@@ -21,17 +21,17 @@ export async function getAuthSession(): Promise<AuthSession | null> {
 }
 
 export async function clearAuthSession() {
-  await SecureStore.deleteItemAsync(AUTH_KEYS.TOKEN_SESSION);
-  await SecureStore.deleteItemAsync(AUTH_KEYS.ACCESS_TOKEN);
-  await SecureStore.deleteItemAsync(AUTH_KEYS.REFRESH_TOKEN);
+  await EncryptedStorage.removeItem(AUTH_KEYS.TOKEN_SESSION);
+  await EncryptedStorage.removeItem(AUTH_KEYS.ACCESS_TOKEN);
+  await EncryptedStorage.removeItem(AUTH_KEYS.REFRESH_TOKEN);
 }
 
 export async function getAccessToken(): Promise<string | null> {
-  return await SecureStore.getItemAsync(AUTH_KEYS.ACCESS_TOKEN);
+  return await EncryptedStorage.getItem(AUTH_KEYS.ACCESS_TOKEN);
 }
 
 export async function getRefreshToken(): Promise<string | null> {
-  return await SecureStore.getItemAsync(AUTH_KEYS.REFRESH_TOKEN);
+  return await EncryptedStorage.getItem(AUTH_KEYS.REFRESH_TOKEN);
 }
 
 export async function refreshSession(refreshToken: string): Promise<AuthSession> {
@@ -47,7 +47,6 @@ export async function refreshSession(refreshToken: string): Promise<AuthSession>
 
   const { access_token, refresh_token } = response.data;
   
-  // Extract info using shared parseJwt helper
   const payload = parseJwt(access_token);
   if (!payload) {
     throw new Error("Invalid JWT token during refresh");

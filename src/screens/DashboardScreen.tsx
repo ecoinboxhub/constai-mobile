@@ -13,6 +13,7 @@ import {
   initOfflineDatabase,
   getPendingSyncItems,
   getDbConnection,
+  getAllAsync,
 } from "../../services/dbService";
 import {
   processSyncQueue,
@@ -50,8 +51,8 @@ export default function DashboardScreen() {
   const refreshLocalData = async () => {
     try {
       const db = await getDbConnection();
-      const cachedProjects = await db.getAllAsync<ProjectDTO>("SELECT * FROM projects ORDER BY id DESC;");
-      const cachedTasks = await db.getAllAsync<MobileTaskDTO>("SELECT * FROM tasks ORDER BY created_at DESC;");
+      const cachedProjects = await getAllAsync<ProjectDTO>(db, "SELECT * FROM projects ORDER BY id DESC;");
+      const cachedTasks = await getAllAsync<MobileTaskDTO>(db, "SELECT * FROM tasks ORDER BY created_at DESC;");
       setProjects(cachedProjects);
       setTasks(cachedTasks);
       const pending = await getPendingSyncItems();

@@ -1,11 +1,10 @@
 import axios from "axios";
-import { getDbConnection } from "./dbService";
+import { getDbConnection, getAllAsync } from "./dbService";
 import { checkInternetConnection } from "./syncService";
 import { MobileUploadDTO } from "../shared/types";
 
 import { API_BASE_URL } from "../src/config";
 
-// Upload states mapped to integer column for backward-compatibility
 export const UPLOAD_STATUS = {
   PENDING: 0,
   SYNCED: 1,
@@ -14,7 +13,6 @@ export const UPLOAD_STATUS = {
 };
 
 export async function compressSitePhoto(fileUri: string): Promise<string> {
-  // Mobile upload pre-processing
   console.log(`Mobile upload: Enforced WebP progressive image compression for ${fileUri}. Size reduced by ~75%.`);
   return fileUri;
 }
@@ -25,8 +23,7 @@ export async function queueOfflineUpload(upload: Omit<MobileUploadDTO, "is_uploa
   const compressedUri = await compressSitePhoto(upload.file_uri);
   const now = new Date().toISOString();
 
-  // Queue with status 0 (PENDING)
-  await db.runAsync(
+  await db.executeSql(
     `INSERT OR REPLACE INTO uploads (id, project_id, file_name, file_uri, file_type, is_uploaded, created_at) 
      VALUES (?, ?, ?, ?, ?, 0, ?);`,
     [upload.id, upload.project_id, upload.file_name, compressedUri, upload.file_type, now]
@@ -40,8 +37,8 @@ export async function processPendingUploads(getToken: () => Promise<string | nul
   if (!connected) return;
 
   const db = await getDbConnection();
-  // Fetch both PENDING (0) and FAILED (3) items
-  const pendingUploads = await db.getAllAsync<MobileUploadDTO>(
+  const pendingUploads = await getAllAsync<MobileUploadDTO>(
+    db,
     "SELECT * FROM uploads WHERE is_uploaded IN (0, 3) ORDER BY created_at ASC;"
   );
 
@@ -57,8 +54,7 @@ export async function processPendingUploads(getToken: () => Promise<string | nul
 
   for (const upload of pendingUploads) {
     try {
-      // 1. Mark status as UPLOADING (2)
-      await db.runAsync(
+      await db.executeSql(
         "UPDATE uploads SET is_uploaded = 2 WHERE id = ?;",
         [upload.id]
       );
@@ -78,13 +74,12 @@ export async function processPendingUploads(getToken: () => Promise<string | nul
             Authorization: `Bearer ${token}`,
             "Content-Type": "multipart/form-data",
           },
-          timeout: 45000, // 45 seconds timeout for large media
+          timeout: 45000,
         }
       );
 
       if (response.status === 200 || response.status === 201) {
-        // 2. Mark as SYNCED (1)
-        await db.runAsync(
+        await db.executeSql(
           "UPDATE uploads SET is_uploaded = 1 WHERE id = ?;",
           [upload.id]
         );
@@ -92,19 +87,19 @@ export async function processPendingUploads(getToken: () => Promise<string | nul
       }
     } catch (err: any) {
       console.error(`Mobile upload: Failed to upload ${upload.file_name}.`, err?.message);
-      // 3. Mark as FAILED (3)
-      await db.runAsync(
+      await db.executeSql(
         "UPDATE uploads SET is_uploaded = 3 WHERE id = ?;",
         [upload.id]
       );
-      break; // Halt execution to preserve transaction ordering
+      break;
     }
   }
 }
 
 export async function getUploadQueueSummary() {
   const db = await getDbConnection();
-  const rows = await db.getAllAsync<any>(
+  const rows = await getAllAsync<any>(
+    db,
     "SELECT is_uploaded, COUNT(*) as count FROM uploads GROUP BY is_uploaded;"
   );
   

@@ -8,7 +8,7 @@ import {
   TextInput,
   Alert,
 } from "react-native";
-import { getDbConnection } from "../../services/dbService";
+import { getDbConnection, getAllAsync } from "../../services/dbService";
 import { performOfflineWrite } from "../../services/syncService";
 import { ProjectDTO } from "../../shared/types";
 
@@ -25,7 +25,7 @@ export default function ProjectsScreen() {
   const loadProjects = async () => {
     try {
       const db = await getDbConnection();
-      const rows = await db.getAllAsync<ProjectDTO>("SELECT * FROM projects ORDER BY id DESC;");
+      const rows = await getAllAsync<ProjectDTO>(db, "SELECT * FROM projects ORDER BY id DESC;");
       setProjects(rows);
     } catch (err) {
       console.error("Failed to load projects", err);
