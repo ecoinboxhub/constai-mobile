@@ -1,5 +1,5 @@
-import { launchCamera, launchImageLibrary, requestCameraPermission, requestMediaLibraryPermission, Permission } from "react-native-image-picker";
-import DocumentPicker from "react-native-document-picker";
+import { launchCamera, launchImageLibrary, requestCameraPermission, requestMediaLibraryPermission } from "react-native-image-picker";
+import { pick, types } from "@react-native-documents/picker";
 import { Platform, PermissionsAndroid } from "react-native";
 import { queueOfflineUpload } from "./uploadService";
 
@@ -81,8 +81,8 @@ export async function selectGalleryPhoto(projectId: string): Promise<string | nu
 }
 
 export async function selectDocumentFile(projectId: string): Promise<string | null> {
-  const result = await DocumentPicker.pick({
-    type: [DocumentPicker.types.pdf, DocumentPicker.types.plainText],
+  const result = await pick({
+    type: [types.pdf, types.plainText],
   });
 
   if (!result || result.length === 0) {
