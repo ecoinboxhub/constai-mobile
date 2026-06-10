@@ -2,14 +2,14 @@
 -dontskipnonpubliclibraryclasses
 -verbose
 -optimizationpasses 5
--overloadaggressively
 -repackageclasses ''
--allowaccessmodification
--mergeinterfacesaggressively
 -keep class com.facebook.hermes.** { *; }
 -keep class com.facebook.jni.** { *; }
 -keep class * implements com.facebook.react.bridge.NativeModule { *; }
 -keep class * implements com.facebook.react.bridge.ReactContextBaseJavaModule { *; }
+-keep class expo.modules.** { *; }
+-keep class com.facebook.react.** { *; }
 -dontwarn okhttp3.**
 -dontwarn okio.**
 -dontwarn javax.annotation.**
+-dontwarn expo.modules.**
