@@ -1,8 +1,10 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import ReactNativeBiometrics from "react-native-biometrics";
+import { Animated, Platform } from "react-native";
 import axios from "axios";
-import { AuthSession, parseJwt } from "../shared/auth";
-import { getAuthSession, saveAuthSession, clearAuthSession } from "../services/authService";
+import { AuthSession, parseJwt, AUTH_KEYS } from "../shared/auth";
+import { getAuthSession, saveAuthSession, clearAuthSession, saveGuestSession, getGuestSession, clearGuestSession, getBiometricPreference, saveBiometricPreference } from "../services/authService";
+import { API_BASE_URL } from "../src/config";
 
 const rnBiometrics = new ReactNativeBiometrics();
 
@@ -12,149 +14,202 @@ interface AuthContextType {
   biometricSupported: boolean;
   biometricEnabled: boolean;
   login: (email: string, password: string) => Promise<void>;
+  signup: (email: string, password: string, name: string, companyName: string) => Promise<void>;
+  guestLogin: () => Promise<void>;
   logout: () => Promise<void>;
   authenticateBiometrics: () => Promise<boolean>;
   setBiometricPreference: (enabled: boolean) => Promise<void>;
   requestOtp: (phone_number: string) => Promise<void>;
   verifyOtp: (phone_number: string, code: string) => Promise<void>;
+  isGuest: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-import { API_BASE_URL } from "../src/config";
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [biometricSupported, setBiometricSupported] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     async function bootstrapSession() {
       try {
         const cached = await getAuthSession();
-        
+        const guest = await getGuestSession();
+        const pref = await getBiometricPreference();
         const { available } = await rnBiometrics.isSensorAvailable();
         setBiometricSupported(available);
-
+        setBiometricEnabled(pref && available);
         if (cached) {
           setSession(cached);
+        } else if (guest) {
+          setSession(guest);
         }
       } catch (err) {
         console.error("Session bootstrap failed", err);
       } finally {
-        setLoading(false);
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: true,
+        }).start(() => setLoading(false));
       }
     }
     bootstrapSession();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     setLoading(true);
     try {
-      const response = await axios.post(`${API_BASE_URL}/auth/login`, {
-        email,
-        password,
-      });
-
+      const response = await axios.post(`${API_BASE_URL}/auth/login`, { email, password });
       const { access_token, refresh_token } = response.data;
-
       const payload = parseJwt(access_token);
-      if (!payload) {
-        throw new Error("Invalid JWT token payload format.");
-      }
-
+      if (!payload) throw new Error("Invalid JWT token payload format.");
       const userSession: AuthSession = {
         accessToken: access_token,
         refreshToken: refresh_token,
         role: payload.role || "analyst",
         userId: payload.sub,
-        email: email,
+        email,
         companyId: payload.company_id,
+        isGuest: false,
       };
-
       await saveAuthSession(userSession);
+      await clearGuestSession();
       setSession(userSession);
     } catch (err: any) {
-      const errMsg = err?.response?.data?.detail || err?.message || "Authentication failed. Please verify credentials.";
+      const errMsg = err?.response?.data?.detail || err?.message || "Authentication failed.";
       throw new Error(errMsg);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const requestOtp = async (phone_number: string) => {
+  const signup = useCallback(async (email: string, password: string, name: string, companyName: string) => {
+    setLoading(true);
+    try {
+      const response = await axios.post(`${API_BASE_URL}/auth/register`, {
+        email,
+        username: name,
+        password,
+        company_name: companyName,
+        role: "analyst",
+      });
+      const userSession: AuthSession = {
+        accessToken: "",
+        refreshToken: "",
+        role: response.data.role || "analyst",
+        userId: response.data.id,
+        email,
+        name,
+        isGuest: false,
+      };
+      const loginRes = await axios.post(`${API_BASE_URL}/auth/login`, { email, password });
+      const { access_token, refresh_token } = loginRes.data;
+      userSession.accessToken = access_token;
+      userSession.refreshToken = refresh_token;
+      await saveAuthSession(userSession);
+      await clearGuestSession();
+      setSession(userSession);
+    } catch (err: any) {
+      const errMsg = err?.response?.data?.detail || err?.message || "Registration failed.";
+      throw new Error(errMsg);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const guestLogin = useCallback(async () => {
+    setLoading(true);
+    try {
+      const guestSession: AuthSession = {
+        accessToken: "",
+        refreshToken: "",
+        role: "guest",
+        userId: `guest-${Date.now()}`,
+        email: "guest@constai.app",
+        isGuest: true,
+        name: "Field User",
+      };
+      await saveGuestSession(guestSession);
+      setSession(guestSession);
+    } catch (err) {
+      console.error("Guest login failed", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const logout = useCallback(async () => {
+    setLoading(true);
+    try {
+      await clearAuthSession();
+      await clearGuestSession();
+      setSession(null);
+    } catch (err) {
+      console.error("Logout error", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const authenticateBiometrics = useCallback(async (): Promise<boolean> => {
+    if (!biometricSupported) return false;
+    try {
+      const { success } = await rnBiometrics.simplePrompt({
+        promptMessage: "Unlock ConstAI Field Console",
+      });
+      return success;
+    } catch {
+      return false;
+    }
+  }, [biometricSupported]);
+
+  const setBiometricPreference = useCallback(async (enabled: boolean) => {
+    setBiometricEnabled(enabled);
+    await saveBiometricPreference(enabled);
+  }, []);
+
+  const requestOtp = useCallback(async (phone_number: string) => {
     setLoading(true);
     try {
       await axios.post(`${API_BASE_URL}/auth/request-otp`, { phone_number });
     } catch (err: any) {
-      const errMsg = err?.response?.data?.detail || err?.message || "Failed to dispatch SMS verification code.";
+      const errMsg = err?.response?.data?.detail || err?.message || "Failed to send OTP.";
       throw new Error(errMsg);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const verifyOtp = async (phone_number: string, code: string) => {
+  const verifyOtp = useCallback(async (phone_number: string, code: string) => {
     setLoading(true);
     try {
       const response = await axios.post(`${API_BASE_URL}/auth/verify-otp`, { phone_number, code });
       const { access_token, refresh_token } = response.data;
-
       const payload = parseJwt(access_token);
-      if (!payload) {
-        throw new Error("Invalid JWT token format.");
-      }
-
+      if (!payload) throw new Error("Invalid JWT token format.");
       const userSession: AuthSession = {
         accessToken: access_token,
         refreshToken: refresh_token,
         role: payload.role || "artisan",
         userId: payload.sub,
-        email: payload.email || `artisan_${phone_number}`,
+        email: payload.email || `user_${phone_number}`,
         companyId: payload.company_id,
+        isGuest: false,
       };
-
       await saveAuthSession(userSession);
+      await clearGuestSession();
       setSession(userSession);
     } catch (err: any) {
-      const errMsg = err?.response?.data?.detail || err?.message || "Verification code invalid or expired.";
+      const errMsg = err?.response?.data?.detail || err?.message || "Invalid code.";
       throw new Error(errMsg);
     } finally {
       setLoading(false);
     }
-  };
-
-  const logout = async () => {
-    setLoading(true);
-    try {
-      await clearAuthSession();
-      setSession(null);
-    } catch (err) {
-      console.error("Logout session clearing error", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const authenticateBiometrics = async (): Promise<boolean> => {
-    if (!biometricSupported) return false;
-    
-    try {
-      const { success } = await rnBiometrics.simplePrompt({
-        promptMessage: "Authenticate to unlock ConstAI Field Console",
-      });
-      
-      return success;
-    } catch (err) {
-      console.error("Biometric authentication error", err);
-      return false;
-    }
-  };
-
-  const setBiometricPreference = async (enabled: boolean) => {
-    setBiometricEnabled(enabled);
-  };
+  }, []);
 
   return (
     <AuthContext.Provider
@@ -164,11 +219,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         biometricSupported,
         biometricEnabled,
         login,
+        signup,
+        guestLogin,
         logout,
         authenticateBiometrics,
         setBiometricPreference,
         requestOtp,
         verifyOtp,
+        isGuest: session?.isGuest ?? false,
       }}
     >
       {children}
@@ -178,8 +236,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be utilized within an AuthProvider");
-  }
+  if (!context) throw new Error("useAuth must be used within AuthProvider");
   return context;
 };

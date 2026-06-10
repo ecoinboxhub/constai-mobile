@@ -5,12 +5,16 @@ export interface AuthSession {
   userId: string;
   email: string;
   companyId?: number;
+  isGuest?: boolean;
+  name?: string;
 }
 
 export const AUTH_KEYS = {
   TOKEN_SESSION: "constai_auth_session",
   ACCESS_TOKEN: "constai_access_token",
   REFRESH_TOKEN: "constai_refresh_token",
+  GUEST_SESSION: "constai_guest_session",
+  BIOMETRIC_ENABLED: "constai_biometric_enabled",
 };
 
 export function parseJwt(token: string): any {

@@ -1,13 +1,12 @@
 import EncryptedStorage from 'react-native-encrypted-storage';
 import axios from "axios";
 import { AuthSession, AUTH_KEYS, parseJwt } from "../shared/auth";
-
 import { API_BASE_URL } from "../src/config";
 
 export async function saveAuthSession(session: AuthSession) {
   await EncryptedStorage.setItem(AUTH_KEYS.TOKEN_SESSION, JSON.stringify(session));
-  await EncryptedStorage.setItem(AUTH_KEYS.ACCESS_TOKEN, session.accessToken);
-  await EncryptedStorage.setItem(AUTH_KEYS.REFRESH_TOKEN, session.refreshToken);
+  if (session.accessToken) await EncryptedStorage.setItem(AUTH_KEYS.ACCESS_TOKEN, session.accessToken);
+  if (session.refreshToken) await EncryptedStorage.setItem(AUTH_KEYS.REFRESH_TOKEN, session.refreshToken);
 }
 
 export async function getAuthSession(): Promise<AuthSession | null> {
@@ -15,7 +14,7 @@ export async function getAuthSession(): Promise<AuthSession | null> {
   if (!sessionStr) return null;
   try {
     return JSON.parse(sessionStr) as AuthSession;
-  } catch (e) {
+  } catch {
     return null;
   }
 }
@@ -34,24 +33,42 @@ export async function getRefreshToken(): Promise<string | null> {
   return await EncryptedStorage.getItem(AUTH_KEYS.REFRESH_TOKEN);
 }
 
+export async function saveGuestSession(session: AuthSession) {
+  await EncryptedStorage.setItem(AUTH_KEYS.GUEST_SESSION, JSON.stringify(session));
+}
+
+export async function getGuestSession(): Promise<AuthSession | null> {
+  const str = await EncryptedStorage.getItem(AUTH_KEYS.GUEST_SESSION);
+  if (!str) return null;
+  try {
+    return JSON.parse(str) as AuthSession;
+  } catch {
+    return null;
+  }
+}
+
+export async function clearGuestSession() {
+  await EncryptedStorage.removeItem(AUTH_KEYS.GUEST_SESSION);
+}
+
+export async function saveBiometricPreference(enabled: boolean) {
+  await EncryptedStorage.setItem(AUTH_KEYS.BIOMETRIC_ENABLED, String(enabled));
+}
+
+export async function getBiometricPreference(): Promise<boolean> {
+  const val = await EncryptedStorage.getItem(AUTH_KEYS.BIOMETRIC_ENABLED);
+  return val === "true";
+}
+
 export async function refreshSession(refreshToken: string): Promise<AuthSession> {
   const response = await axios.post(
     `${API_BASE_URL}/auth/refresh`,
     {},
-    {
-      headers: {
-        Authorization: `Bearer ${refreshToken}`,
-      },
-    }
+    { headers: { Authorization: `Bearer ${refreshToken}` } }
   );
-
   const { access_token, refresh_token } = response.data;
-  
   const payload = parseJwt(access_token);
-  if (!payload) {
-    throw new Error("Invalid JWT token during refresh");
-  }
-
+  if (!payload) throw new Error("Invalid JWT token during refresh");
   const newSession: AuthSession = {
     accessToken: access_token,
     refreshToken: refresh_token,
@@ -60,7 +77,6 @@ export async function refreshSession(refreshToken: string): Promise<AuthSession>
     email: payload.email || "",
     companyId: payload.company_id,
   };
-
   await saveAuthSession(newSession);
   return newSession;
 }
