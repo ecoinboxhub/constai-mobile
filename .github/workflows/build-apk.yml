@@ -54,6 +54,13 @@ jobs:
           echo "AAB size: $(stat -c%s $AAB) bytes"
         id: aab
 
+      - name: Verify build artifacts
+        run: |
+          echo "APK: ${{ steps.apk.outputs.apk_path }}"
+          echo "AAB: ${{ steps.aab.outputs.aab_path }}"
+          test -f "${{ steps.apk.outputs.apk_path }}" || { echo "APK not found"; exit 1; }
+          test -f "${{ steps.aab.outputs.aab_path }}" || { echo "AAB not found"; exit 1; }
+
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.1.${{ github.run_number }}
@@ -64,10 +71,9 @@ jobs:
             Mobile field app for ConstAI — predictive construction management.
             Built with bare React Native (Expo removed) for minimal size.
 
-            **Install AAB via bundletool:**
-            ```
-            bundletool install-apks --apks=app-release.aab
-            ```
+            **Install on Android:**
+            Download and open the APK file on your device.
+            *Note: Signed with debug keystore — enable "Install from unknown sources" in settings.*
 
             **Features:**
             - Email & SMS OTP login
@@ -76,6 +82,6 @@ jobs:
             - Background sync engine
             - Photo & document capture
           files: |
-            android/app/build/outputs/apk/release/app-release.apk
-            android/app/build/outputs/bundle/release/app-release.aab
-          fail_on_unmatched_files: true
+            ${{ steps.apk.outputs.apk_path }}
+            ${{ steps.aab.outputs.aab_path }}
+          fail_on_unmatched_files: false

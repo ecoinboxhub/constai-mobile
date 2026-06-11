@@ -130,12 +130,12 @@ function PredictTab({ session }: { session: any }) {
     if (!projectId) { Alert.alert("Validation", "Enter a Project ID."); return; }
     setLoading(true);
     try {
-      const res = await axios.get(`${API_BASE_URL}/project-tracker/projects/${projectId}/predict`, {
+      const res = await axios.get(`${API_BASE_URL}/project-tracker/predictions/${projectId}`, {
         headers: { Authorization: `Bearer ${session?.accessToken}` },
       });
       setResult(res.data);
     } catch {
-      Alert.alert("Error", "Prediction failed.");
+      Alert.alert("Error", "Prediction failed. Check the Project ID and try again.");
     } finally {
       setLoading(false);
     }
@@ -152,13 +152,37 @@ function PredictTab({ session }: { session: any }) {
       {result && (
         <View style={tabStyles.resultCard}>
           <Text style={tabStyles.resultLabel}>Prediction Results</Text>
-          {result.delay_risk && <Text style={tabStyles.resultText}>Delay Risk: {result.delay_risk}</Text>}
-          {result.delay_days && <Text style={tabStyles.resultText}>Est. Delay: {result.delay_days} days</Text>}
-          {result.budget_overrun && <Text style={tabStyles.resultText}>Budget Overrun: {result.budget_overrun}</Text>}
-          {result.confidence && <Text style={tabStyles.resultText}>Confidence: {(result.confidence * 100).toFixed(0)}%</Text>}
-          {result.recommendations?.map((r: string, i: number) => (
-            <Text key={i} style={tabStyles.recommendation}>💡 {r}</Text>
-          ))}
+          {result.delay_probability != null && (
+            <Text style={tabStyles.resultText}>
+              Delay Risk: {(result.delay_probability * 100).toFixed(1)}%
+            </Text>
+          )}
+          {result.budget_overrun_probability != null && (
+            <Text style={tabStyles.resultText}>
+              Budget Overrun Risk: {(result.budget_overrun_probability * 100).toFixed(1)}%
+            </Text>
+          )}
+          {result.risk_classification && (
+            <Text style={tabStyles.resultText}>Risk Level: {result.risk_classification}</Text>
+          )}
+          {result.estimated_completion_date && (
+            <Text style={tabStyles.resultText}>
+              Est. Completion: {result.estimated_completion_date}
+            </Text>
+          )}
+          {result.completion_forecast != null && (
+            <Text style={tabStyles.resultText}>
+              Completion Forecast: {result.completion_forecast.toFixed(1)}%
+            </Text>
+          )}
+          {result.cost_trend != null && (
+            <Text style={tabStyles.resultText}>
+              Cost Trend: {(result.cost_trend * 100).toFixed(1)}%
+            </Text>
+          )}
+          {result.delay_model_version && (
+            <Text style={tabStyles.detail}>Model: {result.delay_model_version}</Text>
+          )}
         </View>
       )}
     </ScrollView>
