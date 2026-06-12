@@ -145,6 +145,26 @@ function ProjectDetailView({ project, session, onBack, onRefresh }: {
   const [weather, setWeather] = useState<any>(null);
   const [chatInput, setChatInput] = useState("");
   const [chatResponse, setChatResponse] = useState("");
+  const [prediction, setPrediction] = useState<any>(null);
+  const [predLoading, setPredLoading] = useState(true);
+
+  useEffect(() => {
+    loadPrediction();
+  }, [project.id]);
+
+  const loadPrediction = async () => {
+    setPredLoading(true);
+    try {
+      const res = await axios.get(`${API_BASE_URL}/project-tracker/predictions/${project.id}`, {
+        headers: { Authorization: `Bearer ${session?.accessToken}` },
+      });
+      setPrediction(res.data);
+    } catch {
+      setPrediction(null);
+    } finally {
+      setPredLoading(false);
+    }
+  };
 
   const fetchWeather = async () => {
     if (!project.location || !session?.accessToken) return;
@@ -170,6 +190,15 @@ function ProjectDetailView({ project, session, onBack, onRefresh }: {
     }
   };
 
+  const getRiskColor = (risk: string) => {
+    switch ((risk || "").toLowerCase()) {
+      case "high": return "#ef4444";
+      case "medium": return "#f59e0b";
+      case "low": return "#22c55e";
+      default: return "#64748b";
+    }
+  };
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.detailContainer}>
@@ -179,7 +208,38 @@ function ProjectDetailView({ project, session, onBack, onRefresh }: {
 
         <Text style={styles.detailTitle}>{project.name}</Text>
         <Text style={styles.detailLoc}>{project.location}</Text>
-        <Text style={styles.detailDesc}>{project.description || "No description"}</Text>
+        {project.description ? <Text style={styles.detailDesc}>{project.description}</Text> : null}
+
+        {predLoading ? (
+          <View style={styles.card}><ActivityIndicator color="#3b82f6" /></View>
+        ) : prediction ? (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>AI Predictions</Text>
+            <View style={styles.predRow}>
+              <View style={styles.predItem}>
+                <Text style={[styles.predValue, { color: getRiskColor(prediction.risk_classification) }]}>
+                  {prediction.risk_classification?.toUpperCase()}
+                </Text>
+                <Text style={styles.predLabel}>Risk Level</Text>
+              </View>
+              <View style={styles.predItem}>
+                <Text style={[styles.predValue, { color: prediction.delay_probability > 0.5 ? '#ef4444' : '#22c55e' }]}>
+                  {(prediction.delay_probability * 100).toFixed(0)}%
+                </Text>
+                <Text style={styles.predLabel}>Delay Prob.</Text>
+              </View>
+              <View style={styles.predItem}>
+                <Text style={[styles.predValue, { color: prediction.budget_overrun_probability > 0.5 ? '#ef4444' : '#22c55e' }]}>
+                  {(prediction.budget_overrun_probability * 100).toFixed(0)}%
+                </Text>
+                <Text style={styles.predLabel}>Budget Risk</Text>
+              </View>
+            </View>
+            <Text style={styles.predMeta}>
+              Models: delay {prediction.delay_model_version} · budget {prediction.budget_model_version} · risk {prediction.risk_model_version}
+            </Text>
+          </View>
+        ) : null}
 
         <View style={styles.actionsRow}>
           <TouchableOpacity style={styles.actionChip} onPress={fetchWeather}>
@@ -254,4 +314,9 @@ const styles = StyleSheet.create({
   chatBtn: { backgroundColor: "#3b82f6", borderRadius: 8, paddingVertical: 10, alignItems: "center", width: 100 },
   chatBtnText: { color: "#fff", fontWeight: "700", fontSize: 13 },
   chatResponse: { color: "#e2e8f0", fontSize: 14, marginTop: 10, lineHeight: 20, backgroundColor: "#0f172a", borderRadius: 8, padding: 10 },
+  predRow: { flexDirection: "row", justifyContent: "space-around", paddingVertical: 8 },
+  predItem: { alignItems: "center" },
+  predValue: { fontSize: 20, fontWeight: "800" },
+  predLabel: { color: "#94a3b8", fontSize: 10, marginTop: 2, fontWeight: "600" },
+  predMeta: { color: "#475569", fontSize: 9, textAlign: "center", marginTop: 8 },
 });
