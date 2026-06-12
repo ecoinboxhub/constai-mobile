@@ -9,12 +9,12 @@ import { API_BASE_URL } from "../config";
 import { pick, types } from "@react-native-documents/picker";
 
 const TOOLS = [
-  { key: "weather", label: "Weather", icon: "🌤️" },
-  { key: "newLog", label: "New Log", icon: "📝" },
-  { key: "findSite", label: "Find Site", icon: "📍" },
-  { key: "ingest", label: "Ingest Doc", icon: "📄" },
-  { key: "knowledge", label: "Knowledge Base", icon: "📚" },
-  { key: "settings", label: "Settings", icon: "⚙️" },
+  { key: "weather", label: "Weather", icon: "🌤️", color: "#3b82f6", bg: "rgba(59,130,246,0.15)" },
+  { key: "newLog", label: "New Log", icon: "📝", color: "#10b981", bg: "rgba(16,185,129,0.15)" },
+  { key: "findSite", label: "Find Site", icon: "📍", color: "#f59e0b", bg: "rgba(245,158,11,0.15)" },
+  { key: "ingest", label: "Ingest Doc", icon: "📄", color: "#8b5cf6", bg: "rgba(139,92,246,0.15)" },
+  { key: "knowledge", label: "Knowledge Base", icon: "📚", color: "#06b6d4", bg: "rgba(6,182,212,0.15)" },
+  { key: "settings", label: "Settings", icon: "⚙️", color: "#64748b", bg: "rgba(100,116,139,0.15)" },
 ];
 
 export default function MoreScreen() {
@@ -37,11 +37,18 @@ export default function MoreScreen() {
   return (
     <ScrollView style={s.container}>
       <Animated.View style={{ opacity: fadeAnim, padding: 16 }}>
-        <View style={s.header}><Text style={s.title}>Tools</Text></View>
+        <View style={s.header}>
+          <View>
+            <Text style={s.title}>Tools & Utilities</Text>
+            <Text style={s.subtitle}>Construction site management tools</Text>
+          </View>
+        </View>
         <View style={s.grid}>
           {TOOLS.map((tool) => (
             <TouchableOpacity key={tool.key} style={s.gridCard} onPress={() => setActiveView(tool.key)} activeOpacity={0.7}>
-              <Text style={s.gridIcon}>{tool.icon}</Text>
+              <View style={[s.gridIconWrap, { backgroundColor: tool.bg }]}>
+                <Text style={[s.gridIcon, { color: tool.color }]}>{tool.icon}</Text>
+              </View>
               <Text style={s.gridLabel}>{tool.label}</Text>
             </TouchableOpacity>
           ))}
@@ -286,6 +293,31 @@ function KnowledgeView({ onBack }: { onBack: () => void }) {
 
 function SettingsView({ onBack }: { onBack: () => void }) {
   const { session, isGuest, biometricSupported, biometricEnabled, setBiometricPreference, logout } = useAuth();
+  const [showChangePw, setShowChangePw] = useState(false);
+  const [cpCurrent, setCpCurrent] = useState("");
+  const [cpNew, setCpNew] = useState("");
+  const [cpConfirm, setCpConfirm] = useState("");
+  const [cpLoading, setCpLoading] = useState(false);
+
+  const handleChangePassword = async () => {
+    if (!cpCurrent || !cpNew) { Alert.alert("Validation", "Fill all fields."); return; }
+    if (cpNew.length < 8) { Alert.alert("Validation", "Password must be at least 8 characters."); return; }
+    if (cpNew !== cpConfirm) { Alert.alert("Validation", "Passwords do not match."); return; }
+    setCpLoading(true);
+    try {
+      await axios.post(`${API_BASE_URL}/auth/change-password`, { current_password: cpCurrent, new_password: cpNew }, {
+        headers: { Authorization: `Bearer ${session?.accessToken}` },
+      });
+      Alert.alert("Success", "Password changed successfully.");
+      setShowChangePw(false);
+      setCpCurrent(""); setCpNew(""); setCpConfirm("");
+    } catch (err: any) {
+      Alert.alert("Error", err?.response?.data?.detail || "Failed to change password.");
+    } finally {
+      setCpLoading(false);
+    }
+  };
+
   return (
     <ScrollView style={s.container}>
       <SubHeader title="Settings" onBack={onBack} />
@@ -302,6 +334,23 @@ function SettingsView({ onBack }: { onBack: () => void }) {
             </>
           )}
         </View>
+        {!isGuest && (
+          <View style={s.card}>
+            <TouchableOpacity onPress={() => setShowChangePw(!showChangePw)}>
+              <Text style={s.cardTitle}>🔑 Change Password</Text>
+            </TouchableOpacity>
+            {showChangePw && (
+              <>
+                <TextInput style={s.input} placeholder="Current Password" placeholderTextColor="#475569" secureTextEntry value={cpCurrent} onChangeText={setCpCurrent} />
+                <TextInput style={s.input} placeholder="New Password (min 8 chars)" placeholderTextColor="#475569" secureTextEntry value={cpNew} onChangeText={setCpNew} />
+                <TextInput style={s.input} placeholder="Confirm New Password" placeholderTextColor="#475569" secureTextEntry value={cpConfirm} onChangeText={setCpConfirm} />
+                <TouchableOpacity style={s.btn} onPress={handleChangePassword} disabled={cpLoading}>
+                  {cpLoading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnText}>Update Password</Text>}
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        )}
         {biometricSupported && (
           <View style={s.card}>
             <Text style={s.cardTitle}>🔒 Security</Text>
@@ -324,17 +373,19 @@ function SettingsView({ onBack }: { onBack: () => void }) {
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0f172a" },
   content: { padding: 16 },
-  header: { paddingTop: 48, marginBottom: 12 },
-  title: { color: "#fff", fontSize: 22, fontWeight: "bold" },
+  header: { paddingTop: 48, marginBottom: 20 },
+  title: { color: "#fff", fontSize: 24, fontWeight: "800", letterSpacing: -0.5 },
+  subtitle: { color: "#64748b", fontSize: 13, marginTop: 4 },
   subHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 56, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: "#1e293b" },
   subTitle: { color: "#fff", fontSize: 17, fontWeight: "600" },
   backBtn: { paddingVertical: 4, paddingRight: 8 },
   backText: { color: "#3b82f6", fontSize: 14, fontWeight: "600" },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   gridCard: { width: "47%", backgroundColor: "#1e293b", borderRadius: 16, padding: 20, alignItems: "center", borderWidth: 1, borderColor: "#334155" },
-  gridIcon: { fontSize: 32, marginBottom: 8 },
+  gridIconWrap: { width: 48, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center", marginBottom: 10 },
+  gridIcon: { fontSize: 22 },
   gridLabel: { color: "#fff", fontSize: 13, fontWeight: "600" },
-  input: { backgroundColor: "#0f172a", borderRadius: 12, padding: 14, color: "#fff", marginBottom: 12, fontSize: 14, borderWidth: 1, borderColor: "#334155" },
+  input: { backgroundColor: "#1e293b", borderRadius: 12, padding: 14, color: "#fff", marginBottom: 12, fontSize: 14, borderWidth: 1, borderColor: "#334155" },
   textArea: { minHeight: 100, textAlignVertical: "top" },
   btn: { backgroundColor: "#3b82f6", borderRadius: 10, paddingVertical: 14, alignItems: "center" },
   btnSecondary: { backgroundColor: "#1e293b", borderWidth: 1, borderColor: "#3b82f6" },

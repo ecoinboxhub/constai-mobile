@@ -125,6 +125,14 @@ function PredictTab({ session }: { session: any }) {
   const [projectId, setProjectId] = useState("");
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [qpLoading, setQpLoading] = useState(false);
+  const [qpResult, setQpResult] = useState<any>(null);
+  const [qpForm, setQpForm] = useState({
+    budget_allocated: "", budget_spent: "", workforce_count: "", equipment_count: "",
+    material_cost: "", completion_percentage: "", weather_delay_days: "",
+    safety_incidents: "", inspection_score: "", task_completion_rate: "",
+    daily_progress_rate: "",
+  });
 
   const predict = async () => {
     if (!projectId) { Alert.alert("Validation", "Enter a Project ID."); return; }
@@ -141,48 +149,77 @@ function PredictTab({ session }: { session: any }) {
     }
   };
 
+  const quickPredict = async () => {
+    const required = ["budget_allocated","budget_spent","workforce_count","equipment_count","material_cost","completion_percentage","weather_delay_days","safety_incidents","inspection_score","task_completion_rate","daily_progress_rate"];
+    for (const k of required) {
+      if (!qpForm[k as keyof typeof qpForm]) { Alert.alert("Validation", "Fill all quick-predict fields."); return; }
+    }
+    setQpLoading(true);
+    try {
+      const payload: any = {};
+      for (const k of required) payload[k] = parseFloat(qpForm[k as keyof typeof qpForm]);
+      const res = await axios.post(`${API_BASE_URL}/project-tracker/quick-predict`, payload, {
+        headers: { Authorization: `Bearer ${session?.accessToken}` },
+      });
+      setQpResult(res.data);
+    } catch {
+      Alert.alert("Error", "Quick predict failed.");
+    } finally {
+      setQpLoading(false);
+    }
+  };
+
   return (
     <ScrollView style={tabStyles.container}>
       <Text style={tabStyles.sectionTitle}>Project Predictions</Text>
       <Text style={tabStyles.sectionDesc}>AI-powered delay and budget overrun predictions for any project.</Text>
       <TextInput style={tabStyles.projectInput} placeholder="Project ID" placeholderTextColor="#475569" value={projectId} onChangeText={setProjectId} keyboardType="numeric" />
       <TouchableOpacity style={tabStyles.actionBtn} onPress={predict} disabled={loading}>
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={tabStyles.actionBtnText}>Predict</Text>}
+        {loading ? <ActivityIndicator color="#fff" /> : <Text style={tabStyles.actionBtnText}>By Project ID</Text>}
       </TouchableOpacity>
       {result && (
         <View style={tabStyles.resultCard}>
           <Text style={tabStyles.resultLabel}>Prediction Results</Text>
           {result.delay_probability != null && (
-            <Text style={tabStyles.resultText}>
-              Delay Risk: {(result.delay_probability * 100).toFixed(1)}%
-            </Text>
+            <Text style={tabStyles.resultText}>Delay Risk: {(result.delay_probability * 100).toFixed(1)}%</Text>
           )}
           {result.budget_overrun_probability != null && (
-            <Text style={tabStyles.resultText}>
-              Budget Overrun Risk: {(result.budget_overrun_probability * 100).toFixed(1)}%
-            </Text>
+            <Text style={tabStyles.resultText}>Budget Overrun Risk: {(result.budget_overrun_probability * 100).toFixed(1)}%</Text>
           )}
           {result.risk_classification && (
             <Text style={tabStyles.resultText}>Risk Level: {result.risk_classification}</Text>
           )}
           {result.estimated_completion_date && (
-            <Text style={tabStyles.resultText}>
-              Est. Completion: {result.estimated_completion_date}
-            </Text>
+            <Text style={tabStyles.resultText}>Est. Completion: {result.estimated_completion_date}</Text>
           )}
           {result.completion_forecast != null && (
-            <Text style={tabStyles.resultText}>
-              Completion Forecast: {result.completion_forecast.toFixed(1)}%
-            </Text>
+            <Text style={tabStyles.resultText}>Completion Forecast: {result.completion_forecast.toFixed(1)}%</Text>
           )}
           {result.cost_trend != null && (
-            <Text style={tabStyles.resultText}>
-              Cost Trend: {(result.cost_trend * 100).toFixed(1)}%
-            </Text>
+            <Text style={tabStyles.resultText}>Cost Trend: {(result.cost_trend * 100).toFixed(1)}%</Text>
           )}
           {result.delay_model_version && (
             <Text style={tabStyles.detail}>Model: {result.delay_model_version}</Text>
           )}
+        </View>
+      )}
+
+      <View style={tabStyles.divider} />
+      <Text style={tabStyles.sectionTitle}>Quick Predict</Text>
+      <Text style={tabStyles.sectionDesc}>Enter project parameters for an instant risk assessment.</Text>
+      {(["budget_allocated","budget_spent","workforce_count","equipment_count","material_cost","completion_percentage","weather_delay_days","safety_incidents","inspection_score","task_completion_rate","daily_progress_rate"] as const).map((field) => (
+        <TextInput key={field} style={tabStyles.projectInput} placeholder={field.replace(/_/g," ")} placeholderTextColor="#475569" keyboardType="decimal-pad" value={qpForm[field]} onChangeText={(v) => setQpForm((prev) => ({ ...prev, [field]: v }))} />
+      ))}
+      <TouchableOpacity style={tabStyles.actionBtn} onPress={quickPredict} disabled={qpLoading}>
+        {qpLoading ? <ActivityIndicator color="#fff" /> : <Text style={tabStyles.actionBtnText}>Run Quick Predict</Text>}
+      </TouchableOpacity>
+      {qpResult && (
+        <View style={tabStyles.resultCard}>
+          <Text style={tabStyles.resultLabel}>Quick Predict Results</Text>
+          {qpResult.delay_probability != null && <Text style={tabStyles.resultText}>Delay: {(qpResult.delay_probability * 100).toFixed(1)}%</Text>}
+          {qpResult.budget_overrun_probability != null && <Text style={tabStyles.resultText}>Budget Overrun: {(qpResult.budget_overrun_probability * 100).toFixed(1)}%</Text>}
+          {qpResult.risk_level && <Text style={tabStyles.resultText}>Risk: {qpResult.risk_level}</Text>}
+          {qpResult.advisory && <Text style={tabStyles.recommendation}>Advisory: {qpResult.advisory}</Text>}
         </View>
       )}
     </ScrollView>
@@ -260,4 +297,5 @@ const tabStyles = StyleSheet.create({
   sourceSnippet: { color: "#64748b", fontSize: 11, marginTop: 4 },
   recommendation: { color: "#f59e0b", fontSize: 13, marginTop: 6, lineHeight: 18 },
   detail: { color: "#64748b", fontSize: 12, marginTop: 4 },
+  divider: { height: 1, backgroundColor: "#334155", marginVertical: 20 },
 });
