@@ -35,8 +35,11 @@ function ChatTab({ session }: { session: any }) {
       });
       const aiContent = res.data?.response || res.data?.answer || res.data?.message || JSON.stringify(res.data);
       setMessages((prev) => [...prev, { role: "ai", content: aiContent }]);
-    } catch {
-      setMessages((prev) => [...prev, { role: "ai", content: "⚠️ Failed to get response. Check your connection." }]);
+    } catch (err) {
+      const msg = axios.isAxiosError(err) && err.response?.status === 503
+        ? "AI service is temporarily unavailable. Please try again."
+        : "Failed to get AI response. Check your connection.";
+      setMessages((prev) => [...prev, { role: "ai", content: msg }]);
     } finally {
       setLoading(false);
     }
@@ -89,8 +92,11 @@ function RAGTab({ session }: { session: any }) {
         { headers: { Authorization: `Bearer ${session?.accessToken}` } },
       );
       setResult(res.data);
-    } catch {
-      Alert.alert("Error", "Search failed.");
+    } catch (err) {
+      const msg = axios.isAxiosError(err) && err.response?.status === 503
+        ? "AI service is temporarily unavailable."
+        : "Search failed. Check your connection.";
+      Alert.alert("Error", msg);
     } finally {
       setLoading(false);
     }
@@ -143,8 +149,10 @@ function PredictTab({ session }: { session: any }) {
         headers: { Authorization: `Bearer ${session?.accessToken}` },
       });
       setResult(res.data);
-    } catch {
-      Alert.alert("Error", "Prediction failed. Check the Project ID and try again.");
+    } catch (err) {
+      Alert.alert("Error", axios.isAxiosError(err) && err.response?.status === 503
+        ? "AI service is temporarily unavailable."
+        : "Prediction failed. Check the Project ID and try again.");
     } finally {
       setLoading(false);
     }
@@ -163,8 +171,10 @@ function PredictTab({ session }: { session: any }) {
         headers: { Authorization: `Bearer ${session?.accessToken}` },
       });
       setQpResult(res.data);
-    } catch {
-      Alert.alert("Error", "Quick predict failed.");
+    } catch (err) {
+      Alert.alert("Error", axios.isAxiosError(err) && err.response?.status === 503
+        ? "AI service is temporarily unavailable."
+        : "Quick predict failed. Check your connection.");
     } finally {
       setQpLoading(false);
     }

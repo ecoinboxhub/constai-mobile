@@ -186,8 +186,10 @@ function ProjectDetailView({ project, session, onBack, onRefresh }: {
         { headers: { Authorization: `Bearer ${session?.accessToken}` } },
       );
       setChatResponse(res.data?.response || res.data?.answer || "No response.");
-    } catch {
-      setChatResponse("Failed to get AI response.");
+    } catch (err) {
+      setChatResponse(axios.isAxiosError(err) && err.response?.status === 503
+        ? "AI service is temporarily unavailable."
+        : "Failed to get AI response.");
     }
   };
 
