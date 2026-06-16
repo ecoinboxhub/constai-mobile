@@ -1,6 +1,7 @@
 {
   "name": "constai-mobile",
-  "version": "1.1.22",
+  "version": "1.1.36",
+  "description": "ConstAI Field Console - Mobile predictive construction management",
   "private": true,
   "scripts": {
     "android": "react-native run-android",

@@ -169,7 +169,8 @@ function ProjectDetailView({ project, session, onBack, onRefresh }: {
   const fetchWeather = async () => {
     if (!project.location || !session?.accessToken) return;
     try {
-      const res = await axios.get(`${API_BASE_URL}/project-tracker/projects/${project.id}/weather`, {
+      const city = project.location || "lagos";
+      const res = await axios.get(`${API_BASE_URL}/project-tracker/weather/${encodeURIComponent(city)}`, {
         headers: { Authorization: `Bearer ${session?.accessToken}` },
       });
       setWeather(res.data);
@@ -180,8 +181,8 @@ function ProjectDetailView({ project, session, onBack, onRefresh }: {
     if (!chatInput.trim()) return;
     setChatResponse("Thinking...");
     try {
-      const res = await axios.post(`${API_BASE_URL}/project-tracker/projects/${project.id}/chat`,
-        { message: chatInput },
+      const res = await axios.post(`${API_BASE_URL}/project-tracker/chat`,
+        { message: chatInput, project_id: project.id },
         { headers: { Authorization: `Bearer ${session?.accessToken}` } },
       );
       setChatResponse(res.data?.response || res.data?.answer || "No response.");

@@ -19,8 +19,8 @@ android {
         applicationId "com.constai.fieldconsole"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 22
-        versionName "1.1.22"
+        versionCode 36
+        versionName "1.1.36"
     }
     signingConfigs {
         debug {
