@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "136252535315",
+    "project_id": "constai-163b2",
+    "storage_bucket": "constai-163b2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:136252535315:android:6b8ea8c07cf3e10c4c85e6",
+        "android_client_info": {
+          "package_name": "com.constai.fieldconsole"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAy3BbQeCGwiJHzY_PkVJiWn5aXVhjrIOE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -6,6 +6,7 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import axios from "axios";
 import { API_BASE_URL } from "../config";
+import ProjectPicker from "../components/ProjectPicker";
 
 type Tab = "chat" | "rag" | "predict";
 
@@ -74,7 +75,7 @@ function ChatTab({ session }: { session: any }) {
 }
 
 function RAGTab({ session }: { session: any }) {
-  const [projectId, setProjectId] = useState("");
+  const [projectId, setProjectId] = useState<number | null>(null);
   const [question, setQuestion] = useState("");
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -84,7 +85,7 @@ function RAGTab({ session }: { session: any }) {
     setLoading(true);
     try {
       const res = await axios.post(`${API_BASE_URL}/project-tracker/rag/query`,
-        { project_id: parseInt(projectId, 10), question },
+        { project_id: projectId, question },
         { headers: { Authorization: `Bearer ${session?.accessToken}` } },
       );
       setResult(res.data);
@@ -99,7 +100,7 @@ function RAGTab({ session }: { session: any }) {
     <ScrollView style={tabStyles.container}>
       <Text style={tabStyles.sectionTitle}>Knowledge Base Search</Text>
       <Text style={tabStyles.sectionDesc}>Search indexed project documents for specific clauses, specs, or guidelines.</Text>
-      <TextInput style={tabStyles.projectInput} placeholder="Project ID" placeholderTextColor="#475569" value={projectId} onChangeText={setProjectId} keyboardType="numeric" />
+      <ProjectPicker session={session} selectedProjectId={projectId} onSelect={setProjectId} />
       <TextInput style={tabStyles.projectInput} placeholder="e.g. What is the concrete curing time?" placeholderTextColor="#475569" value={question} onChangeText={setQuestion} />
       <TouchableOpacity style={tabStyles.actionBtn} onPress={search} disabled={loading}>
         {loading ? <ActivityIndicator color="#fff" /> : <Text style={tabStyles.actionBtnText}>Search Documents</Text>}
@@ -122,7 +123,7 @@ function RAGTab({ session }: { session: any }) {
 }
 
 function PredictTab({ session }: { session: any }) {
-  const [projectId, setProjectId] = useState("");
+  const [projectId, setProjectId] = useState<number | null>(null);
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [qpLoading, setQpLoading] = useState(false);
@@ -173,7 +174,7 @@ function PredictTab({ session }: { session: any }) {
     <ScrollView style={tabStyles.container}>
       <Text style={tabStyles.sectionTitle}>Project Predictions</Text>
       <Text style={tabStyles.sectionDesc}>AI-powered delay and budget overrun predictions for any project.</Text>
-      <TextInput style={tabStyles.projectInput} placeholder="Project ID" placeholderTextColor="#475569" value={projectId} onChangeText={setProjectId} keyboardType="numeric" />
+      <ProjectPicker session={session} selectedProjectId={projectId} onSelect={setProjectId} />
       <TouchableOpacity style={tabStyles.actionBtn} onPress={predict} disabled={loading}>
         {loading ? <ActivityIndicator color="#fff" /> : <Text style={tabStyles.actionBtnText}>By Project ID</Text>}
       </TouchableOpacity>

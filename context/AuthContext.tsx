@@ -5,6 +5,7 @@ import axios from "axios";
 import { AuthSession, parseJwt, AUTH_KEYS } from "../shared/auth";
 import { getAuthSession, saveAuthSession, clearAuthSession, saveGuestSession, getGuestSession, clearGuestSession, getBiometricPreference, saveBiometricPreference } from "../services/authService";
 import { API_BASE_URL } from "../src/config";
+import NetInfo from "@react-native-community/netinfo";
 
 const rnBiometrics = new ReactNativeBiometrics();
 
@@ -22,6 +23,7 @@ interface AuthContextType {
   requestOtp: (phone_number: string) => Promise<void>;
   verifyOtp: (phone_number: string, code: string) => Promise<void>;
   isGuest: boolean;
+  isOnline: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,6 +33,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [biometricSupported, setBiometricSupported] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -58,6 +63,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
     bootstrapSession();
+
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      setIsOnline(state.isConnected ?? true);
+    });
+    return () => unsubscribe();
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
@@ -172,6 +182,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await saveBiometricPreference(enabled);
   }, []);
 
+  const refreshSession = useCallback(async () => {
+    const currentSession = sessionRef.current;
+    if (!currentSession || currentSession.isGuest || !currentSession.refreshToken) return;
+    try {
+      const res = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+        refresh_token: currentSession.refreshToken,
+      });
+      const { access_token, refresh_token } = res.data;
+      const updated: AuthSession = {
+        ...currentSession,
+        accessToken: access_token,
+        refreshToken: refresh_token || currentSession.refreshToken,
+      };
+      await saveAuthSession(updated);
+      setSession(updated);
+    } catch (err: any) {
+      if (err?.response?.status === 401) {
+        await clearAuthSession();
+        await clearGuestSession();
+        setSession(null);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isOnline || !session) return;
+    const interval = setInterval(refreshSession, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [isOnline, session, refreshSession]);
+
   const requestOtp = useCallback(async (phone_number: string) => {
     setLoading(true);
     try {
@@ -227,6 +267,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         requestOtp,
         verifyOtp,
         isGuest: session?.isGuest ?? false,
+        isOnline,
       }}
     >
       {children}

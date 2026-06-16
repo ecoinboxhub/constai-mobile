@@ -115,12 +115,24 @@ export async function processSyncQueue(getToken: () => Promise<string | null>) {
   }
 }
 
+function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
 export async function performOfflineWrite(
   table: string,
   action: 'INSERT' | 'UPDATE' | 'DELETE',
   clientUuid: string,
   data: Record<string, any>
 ) {
+  if (!clientUuid) {
+    clientUuid = generateUUID();
+  }
+  data.client_uuid = clientUuid;
+
   const db = await getDbConnection();
   const columns = Object.keys(data).join(", ");
   const placeholders = Object.keys(data).map(() => "?").join(", ");

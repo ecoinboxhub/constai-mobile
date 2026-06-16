@@ -8,6 +8,9 @@ import ProjectsScreen from "./src/screens/ProjectsScreen";
 import WorkforceScreen from "./src/screens/WorkforceScreen";
 import InsightsScreen from "./src/screens/InsightsScreen";
 import MoreScreen from "./src/screens/MoreScreen";
+import { initErrorMonitor } from "./src/lib/errorMonitor";
+import { registerForPushNotifications } from "./src/lib/notifications";
+initErrorMonitor();
 
 const TABS = [
   { key: "dashboard", label: "Dashboard", icon: "📊" },
@@ -50,6 +53,11 @@ function SplashScreen() {
 
 function AppNavigator() {
   const { session, loading } = useAuth();
+  useEffect(() => {
+    if (session) {
+      registerForPushNotifications(() => Promise.resolve(session.accessToken));
+    }
+  }, [session]);
   if (loading) return <SplashScreen />;
   if (!session) return <LoginScreen />;
   return <TabNavigator tabs={TABS} screens={SCREENS} />;
